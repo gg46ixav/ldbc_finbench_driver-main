@@ -2,7 +2,6 @@ package org.ldbcouncil.finbench.impls.dummy;
 
 import java.io.IOException;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import org.ldbcouncil.finbench.driver.DbConnectionState;
 
@@ -19,21 +18,8 @@ public class DummyDbConnectionState extends DbConnectionState {
         String execute(String queryString, Map<String, Object> queryParams) {
             try(Session session = driver.session()){
                 Result result = session.run(queryString, queryParams);
-                String resultString = result.single().toString();
-
-                System.out.println();
-                System.out.println();
-                System.out.println(resultString);
-                System.out.println();
-                System.out.println();
-
-                return resultString;
+                return result.single().toString();
             }catch(NoSuchRecordException e){
-                System.out.println();
-                System.out.println();
-                System.out.println("No Record");
-                System.out.println(e);
-                System.out.println();
                 return "";
             }
         }

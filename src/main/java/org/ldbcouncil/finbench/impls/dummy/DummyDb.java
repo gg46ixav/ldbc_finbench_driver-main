@@ -2,7 +2,6 @@ package org.ldbcouncil.finbench.impls.dummy;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,7 +26,7 @@ public class DummyDb extends Db {
     @Override
     protected void onInit(Map<String, String> map, LoggingService loggingService) throws DbException {
 
-        String connectionUrl = "bolt://localhost:7687";
+        String connectionUrl = "bolt://localhost:7690";
         connectionState = new DummyDbConnectionState(connectionUrl);
         logger.info("DummyDb initialized");
 
@@ -45,21 +44,20 @@ public class DummyDb extends Db {
         registerOperationHandler(ComplexRead11.class, ComplexRead11Handler.class);
         registerOperationHandler(ComplexRead12.class, ComplexRead12Handler.class);
 
-        registerOperationHandler(Write1.class, Write1Handler.class);
 
+
+
+        // simple reads
         registerOperationHandler(SimpleRead1.class, SimpleRead1Handler.class);
         registerOperationHandler(SimpleRead2.class, SimpleRead2Handler.class);
         registerOperationHandler(SimpleRead3.class, SimpleRead3Handler.class);
-
-        /*
-
-        // simple reads
         registerOperationHandler(SimpleRead4.class, SimpleRead4Handler.class);
         registerOperationHandler(SimpleRead5.class, SimpleRead5Handler.class);
         registerOperationHandler(SimpleRead6.class, SimpleRead6Handler.class);
 
         // writes
 
+        registerOperationHandler(Write1.class, Write1Handler.class);
         registerOperationHandler(Write2.class, Write2Handler.class);
         registerOperationHandler(Write3.class, Write3Handler.class);
         registerOperationHandler(Write4.class, Write4Handler.class);
@@ -79,6 +77,7 @@ public class DummyDb extends Db {
         registerOperationHandler(Write18.class, Write18Handler.class);
         registerOperationHandler(Write19.class, Write19Handler.class);
 
+        /*
         // read-writes
         registerOperationHandler(ReadWrite1.class, ReadWrite1Handler.class);
         registerOperationHandler(ReadWrite2.class, ReadWrite2Handler.class);
@@ -650,7 +649,29 @@ public class DummyDb extends Db {
         public void executeOperation(SimpleRead4 sr4, DummyDbConnectionState dummyDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(sr4.toString());
-            resultReporter.report(0, Collections.EMPTY_LIST, sr4);
+
+            Map<String, Object> queryParams = new HashMap<>();
+            queryParams.put("id", sr4.getId());
+            queryParams.put("threshold", sr4.getThreshold());
+            queryParams.put("start_time", sr4.getStartTime().getTime());
+            queryParams.put("end_time", sr4.getEndTime().getTime());
+
+            String queryString = "MATCH (src:Account {accountId: $id})-[edge:transfer]->(dst:Account) " +
+                    "WHERE $start_time < edge.createTime < $end_time " +
+                    "AND edge.amount > $threshold " +
+                    "RETURN dst.id AS dstId, count(edge) AS numEdges, sum(edge.amount) AS sumAmount";
+
+            DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
+            String result = client.execute(queryString, queryParams);
+
+            List<SimpleRead4Result> simpleRead4Results = null;
+            try {
+                simpleRead4Results = sr4.deserializeResult(result);
+                resultReporter.report(simpleRead4Results.size(), simpleRead4Results, sr4);
+            } catch (IOException e) {
+                //DummyDb.logger.warn(e.getMessage() + "\n" + cr1);
+                resultReporter.report(0, new ArrayList<>(), sr4);
+            }
         }
     }
 
@@ -659,7 +680,29 @@ public class DummyDb extends Db {
         public void executeOperation(SimpleRead5 sr5, DummyDbConnectionState dummyDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(sr5.toString());
-            resultReporter.report(0, Collections.EMPTY_LIST, sr5);
+
+            Map<String, Object> queryParams = new HashMap<>();
+            queryParams.put("id", sr5.getId());
+            queryParams.put("threshold", sr5.getThreshold());
+            queryParams.put("start_time", sr5.getStartTime().getTime());
+            queryParams.put("end_time", sr5.getEndTime().getTime());
+
+            String queryString = "MATCH (dst:Account {accountId: $id})<-[edge:transfer]-(src:Account) " +
+                    "WHERE $start_time < edge.createTime < $end_time " +
+                    "  AND edge.amount > $threshold " +
+                    "RETURN src.id AS srcId, count(edge) AS numEdges, sum(edge.amount) AS sumAmount";
+
+            DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
+            String result = client.execute(queryString, queryParams);
+
+            List<SimpleRead5Result> simpleRead5Results = null;
+            try {
+                simpleRead5Results = sr5.deserializeResult(result);
+                resultReporter.report(simpleRead5Results.size(), simpleRead5Results, sr5);
+            } catch (IOException e) {
+                //DummyDb.logger.warn(e.getMessage() + "\n" + cr1);
+                resultReporter.report(0, new ArrayList<>(), sr5);
+            }
         }
     }
 
@@ -668,7 +711,30 @@ public class DummyDb extends Db {
         public void executeOperation(SimpleRead6 sr6, DummyDbConnectionState dummyDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(sr6.toString());
-            resultReporter.report(0, Collections.EMPTY_LIST, sr6);
+
+            Map<String, Object> queryParams = new HashMap<>();
+            queryParams.put("id", sr6.getId());
+            queryParams.put("start_time", sr6.getStartTime().getTime());
+            queryParams.put("end_time", sr6.getEndTime().getTime());
+
+            String queryString = "MATCH (src:Account {accountId: $id})<-[e1:transfer]-(mid:Account)-[e2:transfer]->" +
+                    "(dst:Account {isBlocked: true}) " +
+                    "WHERE src.accountId <> dst.accountId " +
+                    "  AND $start_time < e1.createTime < $end_time " +
+                    "  AND $start_time < e2.createTime < $end_time " +
+                    "RETURN collect(dst.accountId) AS dstId";
+
+            DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
+            String result = client.execute(queryString, queryParams);
+
+            List<SimpleRead6Result> simpleRead6Results = null;
+            try {
+                simpleRead6Results = sr6.deserializeResult(result);
+                resultReporter.report(simpleRead6Results.size(), simpleRead6Results, sr6);
+            } catch (IOException e) {
+                //DummyDb.logger.warn(e.getMessage() + "\n" + cr1);
+                resultReporter.report(0, new ArrayList<>(), sr6);
+            }
         }
     }
 
@@ -678,14 +744,16 @@ public class DummyDb extends Db {
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w1.toString());
 
+            //Add a person Node
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("personId", w1.getPersonId());
             queryParams.put("personName", w1.getPersonName());
             queryParams.put("createTime", System.currentTimeMillis());
             queryParams.put("isBlocked", w1.getIsBlocked());
 
-            String queryString = "CREATE (:Person {personId: $personId, personName: $personName," +
-                    " isBlocked: $isBlocked, createTime: $createTime})";
+            String queryString = "MERGE (p:Person {personId: $personId})" +
+                    "ON CREATE SET p.personName = $personName, " +
+                    "p.isBlocked = $isBlocked, p.createTime = $createTime";
 
             DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
             client.execute(queryString, queryParams);
@@ -699,17 +767,16 @@ public class DummyDb extends Db {
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w2.toString());
 
+            //Add a Company Node
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("id", w2.getCompanyId());
+            queryParams.put("companyId", w2.getCompanyId());
             queryParams.put("companyName", w2.getCompanyName());
-            //queryParams.put("accountId", ?);
             queryParams.put("createTime", System.currentTimeMillis());
-            queryParams.put("accountBlocked", w2.getIsBlocked());
-            //queryParams.put("accountType", w2.get);
+            queryParams.put("isBlocked", w2.getIsBlocked());
 
-            String queryString = "CREATE (:Company {id: $companyId, name: $companyName})-[:own]-> " +
-                    "(:Account {id: $accountId, createTime: $currentTime, isBlocked: $accountBlocked, " +
-                    "type: $accountType})";
+            String queryString = "MERGE (c:Company {companyId: $companyId})" +
+                    "ON CREATE SET c.name = $companyName, " +
+                    "c.createTime = $createTime, c.isBlocked = $isBlocked";
 
             DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
             client.execute(queryString, queryParams);
@@ -722,6 +789,18 @@ public class DummyDb extends Db {
         public void executeOperation(Write3 w3, DummyDbConnectionState dummyDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w3.toString());
+
+            //Add a Medium Node
+            Map<String, Object> queryParams = new HashMap<>();
+            queryParams.put("mediumId", w3.getMediumId());
+            queryParams.put("mediumType", w3.getMediumType());
+            queryParams.put("createTime", System.currentTimeMillis());
+
+            String queryString = "MERGE (m:Medium {mediumId: $mediumId})" +
+                    "ON CREATE SET m.mediumType = $mediumType, m.createTime = $createTime";
+
+            DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
+            client.execute(queryString, queryParams);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w3);
         }
     }
@@ -731,6 +810,22 @@ public class DummyDb extends Db {
         public void executeOperation(Write4 w4, DummyDbConnectionState dummyDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w4.toString());
+
+            //Add an Account Node owned by Person
+            Map<String, Object> queryParams = new HashMap<>();
+            queryParams.put("personId", w4.getPersonId());
+            queryParams.put("accountId", w4.getAccountId());
+            queryParams.put("time", w4.getTime().getTime());
+            queryParams.put("accountBlocked", w4.getAccountBlocked());
+            queryParams.put("accountType", w4.getAccountType());
+
+            String queryString = "MATCH (p:Person {id: $personId}) " +
+                    "CREATE (p)-[:own {createTime: $time}]->" +
+                    "(:Account {id: $accountId, " +
+                    "createTime: $time, isBlocked: $accountBlocked, accountType: $accountType})";
+
+            DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
+            client.execute(queryString, queryParams);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w4);
         }
     }
@@ -740,6 +835,22 @@ public class DummyDb extends Db {
         public void executeOperation(Write5 w5, DummyDbConnectionState dummyDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w5.toString());
+
+            //Add an Account Node owned by Company
+            Map<String, Object> queryParams = new HashMap<>();
+            queryParams.put("companyId", w5.getCompanyId());
+            queryParams.put("accountId", w5.getAccountId());
+            queryParams.put("time", w5.getTime().getTime());
+            queryParams.put("accountBlocked", w5.getAccountBlocked());
+            queryParams.put("accountType", w5.getAccountType());
+
+            String queryString = "MATCH (c:Company {id: $companyId}) " +
+                    "CREATE (c)-[:own {createTime: $time}]->" +
+                    "(:Account {accountId: $accountId, " +
+                    "createTime: $time, isBlocked: $accountBlocked, type: $accountType})";
+
+            DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
+            client.execute(queryString, queryParams);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w5);
         }
     }
@@ -749,6 +860,23 @@ public class DummyDb extends Db {
         public void executeOperation(Write6 w6, DummyDbConnectionState dummyDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w6.toString());
+
+            //Add Loan applied by Person
+            Map<String, Object> queryParams = new HashMap<>();
+            queryParams.put("personId", w6.getPersonId());
+            queryParams.put("loanId", w6.getLoanId());
+            queryParams.put("time", w6.getTime().getTime());
+            queryParams.put("balance", w6.getBalance());
+            queryParams.put("loanAmount", w6.getLoanAmount());
+
+            String queryString = "MATCH (p:Person {personId: $personId}) " +
+                    "MERGE (l:Loan {loanId: $loanId}) " +
+                    "SET l.loanAmount = $loanAmount, " +
+                    "l.balance = $balance, l.createTime = $time " +
+                    "CREATE (l)<-[:apply {createTime: $time}]-(p)";
+
+            DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
+            client.execute(queryString, queryParams);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w6);
         }
     }
@@ -758,6 +886,23 @@ public class DummyDb extends Db {
         public void executeOperation(Write7 w7, DummyDbConnectionState dummyDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w7.toString());
+
+            //Add Loan applied by Company
+            Map<String, Object> queryParams = new HashMap<>();
+            queryParams.put("companyId", w7.getCompanyId());
+            queryParams.put("loanId", w7.getLoanId());
+            queryParams.put("time", w7.getTime().getTime());
+            queryParams.put("balance", w7.getBalance());
+            queryParams.put("loanAmount", w7.getLoanAmount());
+
+            String queryString = "MATCH (c:Company {companyId: $companyId}) " +
+                    "MERGE (l:Loan {loanId: $loanId}) " +
+                    "SET l.loanAmount = $loanAmount, " +
+                    "l.balance = $balance, l.createTime = $time " +
+                    "CREATE (l)<-[:apply {createTime: $time}]-(c)";
+
+            DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
+            client.execute(queryString, queryParams);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w7);
         }
     }
@@ -767,6 +912,20 @@ public class DummyDb extends Db {
         public void executeOperation(Write8 w8, DummyDbConnectionState dummyDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w8.toString());
+
+            //Add Invest Between Person And Company
+            Map<String, Object> queryParams = new HashMap<>();
+            queryParams.put("companyId", w8.getCompanyId());
+            queryParams.put("personId", w8.getPersonId());
+            queryParams.put("time", w8.getTime().getTime());
+            queryParams.put("ratio", w8.getRatio());
+
+            String queryString = "MATCH (c:Company {companyId: $companyId}) " +
+                    "MATCH (p:Person {personId: $personId}) " +
+                    "CREATE (p)-[:invest {createTime: $time, ratio: $ratio}]->(c)";
+
+            DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
+            client.execute(queryString, queryParams);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w8);
         }
     }
@@ -776,6 +935,20 @@ public class DummyDb extends Db {
         public void executeOperation(Write9 w9, DummyDbConnectionState dummyDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w9.toString());
+
+            //Add Invest Between Company And Company
+            Map<String, Object> queryParams = new HashMap<>();
+            queryParams.put("companyId1", w9.getCompanyId1());
+            queryParams.put("companyId2", w9.getCompanyId2());
+            queryParams.put("time", w9.getTime().getTime());
+            queryParams.put("ratio", w9.getRatio());
+
+            String queryString = "MATCH (c1:Company {companyId: $companyId1}) " +
+                    "MATCH (c2:Company {companyId: $companyId2}) " +
+                    "CREATE (c1)-[:invest {createTime: $time, ratio: $ratio}]->(c2)";
+
+            DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
+            client.execute(queryString, queryParams);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w9);
         }
     }
@@ -785,6 +958,19 @@ public class DummyDb extends Db {
         public void executeOperation(Write10 w10, DummyDbConnectionState dummyDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w10.toString());
+
+            //Add Guarantee Between Persons
+            Map<String, Object> queryParams = new HashMap<>();
+            queryParams.put("personId1", w10.getPersonId1());
+            queryParams.put("personId2", w10.getPersonId2());
+            queryParams.put("time", w10.getTime().getTime());
+
+            String queryString = "MATCH (p1:Person {personId: $personId1}) " +
+                    "MATCH (p2:Person {personId: $personId2}) " +
+                    "CREATE (p1)-[:guarantee {createTime: $time}]->(p2)";
+
+            DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
+            client.execute(queryString, queryParams);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w10);
         }
     }
@@ -794,6 +980,19 @@ public class DummyDb extends Db {
         public void executeOperation(Write11 w11, DummyDbConnectionState dummyDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w11.toString());
+
+            //Add Guarantee Between Companies
+            Map<String, Object> queryParams = new HashMap<>();
+            queryParams.put("companyId1", w11.getCompanyId1());
+            queryParams.put("companyId2", w11.getCompanyId2());
+            queryParams.put("time", w11.getTime().getTime());
+
+            String queryString = "MATCH (c1:Company {companyId: $companyId1}) " +
+                    "MATCH (c2:Company {companyId: $companyId2}) " +
+                    "CREATE (c1)-[:guarantee {createTime: $time}]->(c2)";
+
+            DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
+            client.execute(queryString, queryParams);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w11);
         }
     }
@@ -803,6 +1002,20 @@ public class DummyDb extends Db {
         public void executeOperation(Write12 w12, DummyDbConnectionState dummyDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w12.toString());
+
+            //Add Transfer Between Accounts
+            Map<String, Object> queryParams = new HashMap<>();
+            queryParams.put("accountId1", w12.getAccountId1());
+            queryParams.put("accountId2", w12.getAccountId2());
+            queryParams.put("time", w12.getTime().getTime());
+            queryParams.put("amount", w12.getAmount());
+
+            String queryString = "MATCH (a1:Account {accountId: $accountId1}) " +
+                    "MATCH (a2:Account {accountId: $accountId2}) " +
+                    "CREATE (a1)-[:transfer {createTime: $time, amount: $amount}]->(a2)";
+
+            DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
+            client.execute(queryString, queryParams);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w12);
         }
     }
@@ -812,6 +1025,20 @@ public class DummyDb extends Db {
         public void executeOperation(Write13 w13, DummyDbConnectionState dummyDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w13.toString());
+
+            //Add Withdraw Between Accounts
+            Map<String, Object> queryParams = new HashMap<>();
+            queryParams.put("accountId1", w13.getAccountId1());
+            queryParams.put("accountId2", w13.getAccountId2());
+            queryParams.put("time", w13.getTime().getTime());
+            queryParams.put("amount", w13.getAmount());
+
+            String queryString = "MATCH (a1:Account {accountId: $accountId1}) " +
+                    "MATCH (a2:Account {accountId: $accountId2}) " +
+                    "CREATE (a1)-[:withdraw {createTime: $time, amount: $amount}]->(a2)";
+
+            DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
+            client.execute(queryString, queryParams);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w13);
         }
     }
@@ -821,6 +1048,20 @@ public class DummyDb extends Db {
         public void executeOperation(Write14 w14, DummyDbConnectionState dummyDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w14.toString());
+
+            //Add Repay Between Account And Loan
+            Map<String, Object> queryParams = new HashMap<>();
+            queryParams.put("accountId", w14.getAccountId());
+            queryParams.put("loanId", w14.getLoanId());
+            queryParams.put("time", w14.getTime().getTime());
+            queryParams.put("amount", w14.getAmount());
+
+            String queryString = "MATCH (a:Account {accountId: $accountId}) " +
+                    "MATCH (l:Loan {loanId: $loanId}) " +
+                    "CREATE (a)-[:repay {createTime: $time, amount: $amount}]->(l)";
+
+            DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
+            client.execute(queryString, queryParams);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w14);
         }
     }
@@ -830,6 +1071,20 @@ public class DummyDb extends Db {
         public void executeOperation(Write15 w15, DummyDbConnectionState dummyDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w15.toString());
+
+            //Add Deposit Between Loan And Account
+            Map<String, Object> queryParams = new HashMap<>();
+            queryParams.put("accountId", w15.getAccountId());
+            queryParams.put("loanId", w15.getLoanId());
+            queryParams.put("time", w15.getTime().getTime());
+            queryParams.put("amount", w15.getAmount());
+
+            String queryString = "MATCH (a:Account {accountId: $accountId}) " +
+                    "MATCH (l:Loan {loanId: $loanId}) " +
+                    "CREATE (l)-[:deposit {createTime: $time, amount: $amount}]->(a)";
+
+            DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
+            client.execute(queryString, queryParams);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w15);
         }
     }
@@ -839,6 +1094,19 @@ public class DummyDb extends Db {
         public void executeOperation(Write16 w16, DummyDbConnectionState dummyDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w16.toString());
+
+            //Account signed in with Medium
+            Map<String, Object> queryParams = new HashMap<>();
+            queryParams.put("accountId", w16.getAccountId());
+            queryParams.put("mediumId", w16.getMediumId());
+            queryParams.put("time", w16.getTime().getTime());
+
+            String queryString = "MATCH (a:Account {accountId: $accountId}) " +
+                    "MATCH (m:Medium {mediumId: $mediumId}) " +
+                    "CREATE (m)-[:signIn {createTime: $time}]->(a)";
+
+            DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
+            client.execute(queryString, queryParams);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w16);
         }
     }
@@ -848,6 +1116,17 @@ public class DummyDb extends Db {
         public void executeOperation(Write17 w17, DummyDbConnectionState dummyDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w17.toString());
+
+            //Remove an Account
+            Map<String, Object> queryParams = new HashMap<>();
+            queryParams.put("accountId", w17.getAccountId());
+
+            String queryString = "MATCH (a:Account {accountId: $accountId}) " +
+                    "OPTIONAL MATCH (a)-[:repay]->(loan:Loan)-[:deposit]->(a)" +
+                    "DETACH DELETE a, loan";
+
+            DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
+            client.execute(queryString, queryParams);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w17);
         }
     }
@@ -857,6 +1136,16 @@ public class DummyDb extends Db {
         public void executeOperation(Write18 w18, DummyDbConnectionState dummyDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w18.toString());
+
+            //Block an Account of high risk
+            Map<String, Object> queryParams = new HashMap<>();
+            queryParams.put("accountId", w18.getAccountId());
+
+            String queryString = "MATCH (a:Account {accountId: $accountId}) " +
+                    "SET a.isBlocked = true";
+
+            DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
+            client.execute(queryString, queryParams);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w18);
         }
     }
@@ -866,6 +1155,16 @@ public class DummyDb extends Db {
         public void executeOperation(Write19 w19, DummyDbConnectionState dummyDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w19.toString());
+
+            //Block a Person of high risk
+            Map<String, Object> queryParams = new HashMap<>();
+            queryParams.put("accountId", w19.getPersonId());
+
+            String queryString = "MATCH (p:Person {personId: $personId}) " +
+                    "SET p.isBlocked = true";
+
+            DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
+            client.execute(queryString, queryParams);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w19);
         }
     }
