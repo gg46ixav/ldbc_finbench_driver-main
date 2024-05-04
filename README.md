@@ -1,5 +1,5 @@
 Datasets available at: https://drive.google.com/drive/folders/1NIAo4KptskBytbXoOqmF3Sto4hTX3JIH
-
+Neo4J Import Queries at Neo4j imports.pdf
 
 ![LDBC Logo](ldbc-logo.png)
 
