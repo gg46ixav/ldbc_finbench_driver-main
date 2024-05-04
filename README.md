@@ -1,3 +1,6 @@
+Datasets available at: https://drive.google.com/drive/folders/1NIAo4KptskBytbXoOqmF3Sto4hTX3JIH
+
+
 ![LDBC Logo](ldbc-logo.png)
 
 # LDBC FinBench Driver
