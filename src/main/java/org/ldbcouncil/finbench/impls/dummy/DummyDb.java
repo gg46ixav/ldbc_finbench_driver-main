@@ -1,10 +1,8 @@
 package org.ldbcouncil.finbench.impls.dummy;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -22,11 +20,14 @@ public class DummyDb extends Db {
     static Logger logger = LogManager.getLogger("DummyDb");
 
     private DummyDbConnectionState connectionState = null;
+    private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
 
     @Override
     protected void onInit(Map<String, String> map, LoggingService loggingService) throws DbException {
 
-        String connectionUrl = "bolt://localhost:7690";
+        //String connectionUrl = "bolt://localhost:7690";
+
+        String connectionUrl = "bolt://localhost:7687";
         connectionState = new DummyDbConnectionState(connectionUrl);
         logger.info("DummyDb initialized");
 
@@ -104,15 +105,15 @@ public class DummyDb extends Db {
 
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("id", cr1.getId());
-            queryParams.put("start_time", cr1.getStartTime().getTime());
-            queryParams.put("end_time", cr1.getEndTime().getTime());
+            queryParams.put("start_time", DATE_FORMAT.format(cr1.getStartTime()));
+            queryParams.put("end_time", DATE_FORMAT.format(cr1.getEndTime()));
 
             String queryString = "MATCH p=(account:Account {accountId: $id})-[edge1:transfer*1..3]->(other:Account), "
                     + "(other)<-[edge2:signIn]-(medium:Medium {isBlocked: true}) "
                     + "WITH p, [e IN relationships(p) | e.createTime] AS ts, other, medium "
                     + "WHERE reduce(curr = head(ts), x IN tail(ts) | CASE WHEN curr < x THEN x ELSE 9223372036854775807 end) <> 9223372036854775807 "
-                    + "AND all(e IN edge1 WHERE $start_time < e.createTime < $end_time) "
-                    + "AND $start_time < edge2.createTime < $end_time "
+                    + "AND all(e IN edge1 WHERE localDateTime($start_time) < e.createTime < localDateTime($end_time)) "
+                    + "AND localDateTime($start_time) < edge2.createTime < localDateTime($end_time) "
                     + "RETURN other.accountId AS otherId, length(p) AS accountDistance, medium.mediumId AS mediumId, medium.mediumType AS mediumType "
                     + "ORDER BY accountDistance ASC";
 
@@ -140,8 +141,8 @@ public class DummyDb extends Db {
 
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("id", cr2.getId());
-            queryParams.put("start_time", cr2.getStartTime().getTime());
-            queryParams.put("end_time", cr2.getEndTime().getTime());
+            queryParams.put("start_time", DATE_FORMAT.format(cr2.getStartTime()));
+            queryParams.put("end_time", DATE_FORMAT.format(cr2.getEndTime()));
 
             String queryString = "MATCH " +
                     "(person:Person {personId: $id})-[edge1:own]->(accounts:Account), " +
@@ -150,8 +151,8 @@ public class DummyDb extends Db {
                     "WITH p, [e IN relationships(p) | e.createTime] AS ts, other, loan " +
                     "WHERE " +
                     "reduce(curr = head(ts), x IN tail(ts) | CASE WHEN curr < x THEN x ELSE 9223372036854775807 end) <> 9223372036854775807 " +
-                    "AND all(e IN edge2 WHERE $start_time < e.createTime < $end_time) " +
-                    "AND $start_time < edge3.createTime < $end_time " +
+                    "AND all(e IN edge2 WHERE localDateTime($start_time) < e.createTime < localDateTime($end_time)) " +
+                    "AND localDateTime($start_time) < edge3.createTime < localDateTime($end_time) " +
                     "RETURN other.id AS otherId, sum(loan.amount) AS sumLoanAmount, sum(loan.balance) AS sumLoanBalance " +
                     "ORDER BY sumLoanAmount DESC";
 
@@ -178,12 +179,12 @@ public class DummyDb extends Db {
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("id1", cr3.getId1());
             queryParams.put("id2", cr3.getId2());
-            queryParams.put("start_time", cr3.getStartTime().getTime());
-            queryParams.put("end_time", cr3.getEndTime().getTime());
+            queryParams.put("start_time", DATE_FORMAT.format(cr3.getStartTime()));
+            queryParams.put("end_time", DATE_FORMAT.format(cr3.getEndTime()));
 
-            String queryString = "MATCH path1=shortestPath((src:Account {accountId: $id1})-[edge:transfer*]-> " +
+            String queryString = "MATCH path1=shortestPath((src:Account {accountId: $id1})-[edge:transfer*]->" +
                     "(dst:Account {accountId: $id2}))" +
-                    "WHERE all(e IN edge WHERE $start_time < e.createTime < $end_time) " +
+                    "WHERE all(e IN edge WHERE localDateTime($start_time) < e.createTime < localDateTime($end_time)) " +
                     "RETURN length(path1) AS shortestPathLength";
 
             DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
@@ -209,15 +210,15 @@ public class DummyDb extends Db {
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("id1", cr4.getId1());
             queryParams.put("id2", cr4.getId2());
-            queryParams.put("start_time", cr4.getStartTime().getTime());
-            queryParams.put("end_time", cr4.getEndTime().getTime());
+            queryParams.put("start_time", DATE_FORMAT.format(cr4.getStartTime()));
+            queryParams.put("end_time", DATE_FORMAT.format(cr4.getEndTime()));
 
             String queryString = "MATCH " +
                     "(src:Account {accountId: $id1})-[edge1:transfer]->(dst:Account {accountId: $id2}), " +
                     "(src)<-[edge2:transfer]-(other:Account)-[edge3:transfer]->(dst) " +
-                    "WHERE $start_time < edge1.createTime < $end_time " +
-                    "AND $start_time < edge2.createTime < $end_time " +
-                    "AND $start_time < edge3.createTime < $end_time " +
+                    "WHERE localDateTime($start_time) < edge1.createTime < localDateTime($end_time) " +
+                    "AND localDateTime($start_time) < edge2.createTime < localDateTime($end_time) " +
+                    "AND localDateTime($start_time) < edge3.createTime < localDateTime($end_time) " +
                     "WITH " +
                     "other.id AS otherId, " +
                     "count(edge2) AS numEdge2, sum(edge2.amount) AS sumEdge2Amount, " +
@@ -255,8 +256,8 @@ public class DummyDb extends Db {
 
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("id", cr5.getId());
-            queryParams.put("start_time", cr5.getStartTime().getTime());
-            queryParams.put("end_time", cr5.getEndTime().getTime());
+            queryParams.put("start_time", DATE_FORMAT.format(cr5.getStartTime()));
+            queryParams.put("end_time", DATE_FORMAT.format(cr5.getEndTime()));
 
             String queryString = "MATCH " +
                     "(person:Person {id: $id})-[edge1:own]->(src:Account), " +
@@ -265,7 +266,7 @@ public class DummyDb extends Db {
                     "WHERE "+
                     "reduce(curr = head(ts), x IN tail(ts) | CASE WHEN curr < x THEN x " +
                     "ELSE 9223372036854775807 end) <> 9223372036854775807 " +
-                    "AND all(e IN edge2 WHERE $start_time < e.timestamp < $end_time) " +
+                    "AND all(e IN edge2 WHERE localDateTime($start_time) < e.timestamp < localDateTime($end_time)) " +
                     "RETURN p AS path " +
                     "ORDER BY length(p) DESC";
 
@@ -293,13 +294,13 @@ public class DummyDb extends Db {
             queryParams.put("id", cr6.getId());
             queryParams.put("threshold1", cr6.getThreshold1());
             queryParams.put("threshold2", cr6.getThreshold2());
-            queryParams.put("start_time", cr6.getStartTime().getTime());
-            queryParams.put("end_time", cr6.getEndTime().getTime());
+            queryParams.put("start_time", DATE_FORMAT.format(cr6.getStartTime()));
+            queryParams.put("end_time", DATE_FORMAT.format(cr6.getEndTime()));
 
             String queryString = "MATCH (src1:Account)-[edge1:transfer]->(mid:Account)-[edge2:withdraw]-> " +
                     "(dstCard:Account {accountId: $id, type: 'card'}) " +
-                    "WHERE $start_time < edge1.createTime < $end_time AND edge1.amount > $threshold1 " +
-                    "AND $start_time < edge2.createTime < $end_time AND edge2.amount > $threshold2 " +
+                    "WHERE localDateTime($start_time) < edge1.createTime < localDateTime($end_time) AND edge1.amount > $threshold1 " +
+                    "AND localDateTime($start_time) < edge2.createTime < localDateTime($end_time) AND edge2.amount > $threshold2 " +
                     "RETURN mid.id AS midId, sum(edge1.amount) AS sumEdge1Amount, " +
                     "sum(edge2.amount) AS sumEdge2Amount " +
                     "ORDER BY sumEdge2Amount DESC";
@@ -327,17 +328,19 @@ public class DummyDb extends Db {
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("id", cr7.getId());
             queryParams.put("threshold", cr7.getThreshold());
-            queryParams.put("start_time", cr7.getStartTime().getTime());
-            queryParams.put("end_time", cr7.getEndTime().getTime());
+            queryParams.put("start_time", DATE_FORMAT.format(cr7.getStartTime()));
+            queryParams.put("end_time", DATE_FORMAT.format(cr7.getEndTime()));
 
-            String queryString = "MATCH (src:Account)-[edge1:transfer|withdraw]-> " +
-                    "(mid:Account {accountId: $id})-[edge2:transfer|withdraw]->(dst:Account) " +
-                    "WHERE $start_time < edge1.createTime < $end_time AND edge1.amount > $threshold " +
-                    "AND $start_time < edge2.createTime < $end_time AND edge2.amount > $threshold " +
+            String queryString = "MATCH (src:Account)-[edge1:transfer|withdraw]->(mid:Account {accountId: $id})-" +
+                    "[edge2:transfer|withdraw]->(dst:Account)" +
+                    "WHERE localDateTime($start_time) < edge1.createTime < localDateTime($end_time) " +
+                    "AND edge1.amount > $threshold " +
+                    "AND localDateTime($start_time) < edge2.createTime < localDateTime($end_time) " +
+                    "AND edge2.amount > $threshold " +
+                    "WITH src, dst, edge1, edge2, sum(edge1.amount) AS sumEdge1Amount, sum(edge2.amount) AS sumEdge2Amount " +
                     "RETURN count(src) AS numSrc, count(dst) AS numDst, " +
                     "CASE " +
-                    "WHEN sum(edge2.amount) > 0 THEN " +
-                    "round(1000*sum(edge1.amount)/sum(edge2.amount)) / 1000 " +
+                    "WHEN sumEdge2Amount > 0 THEN round(1000*sumEdge1Amount/sumEdge2Amount) / 1000 " +
                     "ELSE 0 " +
                     "END AS inoutRatio";
 
@@ -364,20 +367,20 @@ public class DummyDb extends Db {
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("id", cr8.getId());
             queryParams.put("threshold", cr8.getThreshold());
-            queryParams.put("start_time", cr8.getStartTime().getTime());
-            queryParams.put("end_time", cr8.getEndTime().getTime());
+            queryParams.put("start_time", DATE_FORMAT.format(cr8.getStartTime()));
+            queryParams.put("end_time", DATE_FORMAT.format(cr8.getEndTime()));
 
             String queryString = "MATCH " +
                     "(loan:Loan {loanId: $id})-[edge1:deposit]->(src:Account), " +
                     "p=(src)-[edge234:transfer|withdraw*1..3]->(dst:Account) " +
                     "WITH loan, p, dst, [e IN relationships(p) | e.amount] AS amts " +
                     "WHERE " +
-                    "$start_time < edge1.createTime < $end_time " +
-                    "AND all(e IN edge234 WHERE $start_time < e.timestamp < $end_time) " +
+                    "$start_time < edge1.createTime < localDateTime($end_time) " +
+                    "AND all(e IN edge234 WHERE localDateTime($start_time) < e.timestamp < localDateTime($end_time)) " +
                     "AND reduce(curr = head(amts), x IN tail(amts) | CASE WHEN (curr <> -1) " +
                     "AND (x > curr*$threshold) THEN x ELSE -1 end) <> -1 " +
-                    "WITH loan, length(p)+1 AS distanceFromLoan, dst, sum(relationships(p)[-1].amount) AS inflow\n" +
-                    "RETURN dst.id AS dstId, round(1000 * inflow/loan.loanAmount) / 1000 AS ratio, distanceFromLoan\n" +
+                    "WITH loan, length(p)+1 AS distanceFromLoan, dst, sum(relationships(p)[-1].amount) AS inflow " +
+                    "RETURN dst.id AS dstId, round(1000 * inflow/loan.loanAmount) / 1000 AS ratio, distanceFromLoan " +
                     "ORDER BY distanceFromLoan DESC, ratio DESC";
 
             DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
@@ -405,8 +408,8 @@ public class DummyDb extends Db {
             queryParams.put("threshold", cr9.getThreshold());
             queryParams.put("lowerbound", 0);
             queryParams.put("upperbound", 2147483647);
-            queryParams.put("start_time", cr9.getStartTime().getTime());
-            queryParams.put("end_time", cr9.getEndTime().getTime());
+            queryParams.put("start_time", DATE_FORMAT.format(cr9.getStartTime()));
+            queryParams.put("end_time", DATE_FORMAT.format(cr9.getEndTime()));
 
             String queryString = "MATCH " +
                     "(loan:Loan)-[edge1:deposit]->(mid:Account {accountId: $id})-[edge2:repay]->(loan), " +
@@ -456,14 +459,14 @@ public class DummyDb extends Db {
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("id1", cr10.getPid1());
             queryParams.put("id2", cr10.getPid2());
-            queryParams.put("start_time", cr10.getStartTime().getTime());
-            queryParams.put("end_time", cr10.getEndTime().getTime());
+            queryParams.put("start_time", DATE_FORMAT.format(cr10.getStartTime()));
+            queryParams.put("end_time", DATE_FORMAT.format(cr10.getEndTime()));
 
             String queryString = "MATCH " +
                     "(p1:Person {personId: $id1})-[edge1:invest]->(m1:Company), " +
                     "(p2:Person {personId: $id2})-[edge2:invest]->(m2:Company) " +
-                    "WHERE $start_time < edge1.timestamp < $end_time " +
-                    "AND $start_time < edge2.timestamp < $end_time " +
+                    "WHERE localDateTime($start_time) < edge1.timestamp < localDateTime($end_time) " +
+                    "AND localDateTime($start_time) < edge2.timestamp < localDateTime($end_time) " +
                     "WITH gds.similarity.jaccard(collect(m1.id), collect(m2.id)) AS jaccardSimilarity " +
                     "RETURN round(1000 * jaccardSimilarity) / 1000 AS jaccardSimilarity";
 
@@ -489,11 +492,11 @@ public class DummyDb extends Db {
 
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("id", cr11.getId());
-            queryParams.put("start_time", cr11.getStartTime().getTime());
-            queryParams.put("end_time", cr11.getEndTime().getTime());
+            queryParams.put("start_time", DATE_FORMAT.format(cr11.getStartTime()));
+            queryParams.put("end_time", DATE_FORMAT.format(cr11.getEndTime()));
 
             String queryString = "MATCH path=(p1:Person {personId: $id})-[:guarantee*]->(pX:Person) " +
-                    "WHERE all(e IN relationships(path) WHERE $start_time < e.createTime < $end_time) " +
+                    "WHERE all(e IN relationships(path) WHERE localDateTime($start_time) < e.createTime < localDateTime($end_time)) " +
                     "UNWIND nodes(path)[1..] AS person " +
                     "MATCH (person)-[:apply]->(loan:Loan) " +
                     "RETURN sum(loan.loanAmount) AS sumLoanAmount, count(loan) AS numLoans";
@@ -520,14 +523,14 @@ public class DummyDb extends Db {
 
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("id", cr12.getId());
-            queryParams.put("start_time", cr12.getStartTime().getTime());
-            queryParams.put("end_time", cr12.getEndTime().getTime());
+            queryParams.put("start_time", DATE_FORMAT.format(cr12.getStartTime()));
+            queryParams.put("end_time", DATE_FORMAT.format(cr12.getEndTime()));
 
             String queryString = "MATCH (person:Person {personId: $id}) " +
                     "-[edge1:own]->(pAcc:Account) " +
                     "-[edge2:transfer]->(compAcc:Account) " +
                     "<-[edge3:own]-(company:Company) " +
-                    "WHERE $start_time < edge2.createTime < $end_time " +
+                    "WHERE localDateTime($start_time) < edge2.createTime < localDateTime($end_time) " +
                     "RETURN compAcc.id AS compAccountId, sum(edge2.amount) AS sumEdge2Amount " +
                     "ORDER BY sumEdge2Amount DESC";
 
@@ -580,14 +583,14 @@ public class DummyDb extends Db {
 
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("id", sr2.getId());
-            queryParams.put("start_time", sr2.getStartTime().getTime());
-            queryParams.put("end_time", sr2.getEndTime().getTime());
+            queryParams.put("start_time", DATE_FORMAT.format(sr2.getStartTime()));
+            queryParams.put("end_time", DATE_FORMAT.format(sr2.getEndTime()));
 
             String queryString = "MATCH (src:Account {accountId: $id}) " +
                     "OPTIONAL MATCH (src)-[edge1:transfer]->(dst1:Account) " +
-                    "WHERE $start_time < edge1.createTime < $end_time " +
+                    "WHERE localDateTime($start_time) < edge1.createTime < localDateTime($end_time) " +
                     "OPTIONAL MATCH (src)<-[edge2:transfer]->(dst2:Account) " +
-                    "WHERE $start_time < edge2.createTime < $end_time " +
+                    "WHERE localDateTime($start_time) < edge2.createTime < localDateTime($end_time) " +
                     "RETURN " +
                     "    sum(edge1.amount), max(edge1.amount), count(edge1), " +
                     "    sum(edge2.amount), max(edge2.amount), count(edge2)";
@@ -616,12 +619,12 @@ public class DummyDb extends Db {
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("id", sr3.getId());
             queryParams.put("threshold", sr3.getThreshold());
-            queryParams.put("start_time", sr3.getStartTime().getTime());
-            queryParams.put("end_time", sr3.getEndTime().getTime());
+            queryParams.put("start_time", DATE_FORMAT.format(sr3.getStartTime()));
+            queryParams.put("end_time", DATE_FORMAT.format(sr3.getEndTime()));
 
             String queryString = "MATCH (src:Account)-[edge2:transfer]->(dst:Account {accountId: $id}) " +
                     "OPTIONAL MATCH (blockedSrc:Account {isBlocked: true})-[edge1:transfer]->(dst) " +
-                    "WHERE $start_time < edge1.createTime < $end_time " +
+                    "WHERE localDateTime($start_time) < edge1.createTime < localDateTime($end_time) " +
                     "AND edge1.amount > $threshold " +
                     "RETURN " +
                     "CASE " +
@@ -653,11 +656,11 @@ public class DummyDb extends Db {
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("id", sr4.getId());
             queryParams.put("threshold", sr4.getThreshold());
-            queryParams.put("start_time", sr4.getStartTime().getTime());
-            queryParams.put("end_time", sr4.getEndTime().getTime());
+            queryParams.put("start_time", DATE_FORMAT.format(sr4.getStartTime()));
+            queryParams.put("end_time", DATE_FORMAT.format(sr4.getEndTime()));
 
             String queryString = "MATCH (src:Account {accountId: $id})-[edge:transfer]->(dst:Account) " +
-                    "WHERE $start_time < edge.createTime < $end_time " +
+                    "WHERE localDateTime($start_time) < edge.createTime < localDateTime($end_time) " +
                     "AND edge.amount > $threshold " +
                     "RETURN dst.id AS dstId, count(edge) AS numEdges, sum(edge.amount) AS sumAmount";
 
@@ -684,11 +687,11 @@ public class DummyDb extends Db {
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("id", sr5.getId());
             queryParams.put("threshold", sr5.getThreshold());
-            queryParams.put("start_time", sr5.getStartTime().getTime());
-            queryParams.put("end_time", sr5.getEndTime().getTime());
+            queryParams.put("start_time", DATE_FORMAT.format(sr5.getStartTime()));
+            queryParams.put("end_time", DATE_FORMAT.format(sr5.getEndTime()));
 
             String queryString = "MATCH (dst:Account {accountId: $id})<-[edge:transfer]-(src:Account) " +
-                    "WHERE $start_time < edge.createTime < $end_time " +
+                    "WHERE localDateTime($start_time) < edge.createTime < localDateTime($end_time) " +
                     "  AND edge.amount > $threshold " +
                     "RETURN src.id AS srcId, count(edge) AS numEdges, sum(edge.amount) AS sumAmount";
 
@@ -714,14 +717,14 @@ public class DummyDb extends Db {
 
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("id", sr6.getId());
-            queryParams.put("start_time", sr6.getStartTime().getTime());
-            queryParams.put("end_time", sr6.getEndTime().getTime());
+            queryParams.put("start_time", DATE_FORMAT.format(sr6.getStartTime().getTime()));
+            queryParams.put("end_time", DATE_FORMAT.format(sr6.getEndTime().getTime()));
 
             String queryString = "MATCH (src:Account {accountId: $id})<-[e1:transfer]-(mid:Account)-[e2:transfer]->" +
                     "(dst:Account {isBlocked: true}) " +
                     "WHERE src.accountId <> dst.accountId " +
-                    "  AND $start_time < e1.createTime < $end_time " +
-                    "  AND $start_time < e2.createTime < $end_time " +
+                    "  AND localDateTime($start_time) < e1.createTime < localDateTime($end_time) " +
+                    "  AND localDateTime($start_time) < e2.createTime < localDateTime($end_time) " +
                     "RETURN collect(dst.accountId) AS dstId";
 
             DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
@@ -748,12 +751,12 @@ public class DummyDb extends Db {
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("personId", w1.getPersonId());
             queryParams.put("personName", w1.getPersonName());
-            queryParams.put("createTime", System.currentTimeMillis());
+            queryParams.put("createTime", DATE_FORMAT.format(new Date()));
             queryParams.put("isBlocked", w1.getIsBlocked());
 
             String queryString = "MERGE (p:Person {personId: $personId})" +
                     "ON CREATE SET p.personName = $personName, " +
-                    "p.isBlocked = $isBlocked, p.createTime = $createTime";
+                    "p.isBlocked = $isBlocked, p.createTime = localDateTime($createTime)";
 
             DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
             client.execute(queryString, queryParams);
@@ -771,12 +774,12 @@ public class DummyDb extends Db {
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("companyId", w2.getCompanyId());
             queryParams.put("companyName", w2.getCompanyName());
-            queryParams.put("createTime", System.currentTimeMillis());
+            queryParams.put("createTime", DATE_FORMAT.format(new Date()));
             queryParams.put("isBlocked", w2.getIsBlocked());
 
             String queryString = "MERGE (c:Company {companyId: $companyId})" +
                     "ON CREATE SET c.name = $companyName, " +
-                    "c.createTime = $createTime, c.isBlocked = $isBlocked";
+                    "c.createTime = localDateTime($createTime), c.isBlocked = $isBlocked";
 
             DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
             client.execute(queryString, queryParams);
@@ -794,10 +797,10 @@ public class DummyDb extends Db {
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("mediumId", w3.getMediumId());
             queryParams.put("mediumType", w3.getMediumType());
-            queryParams.put("createTime", System.currentTimeMillis());
+            queryParams.put("createTime", DATE_FORMAT.format(new Date()));
 
             String queryString = "MERGE (m:Medium {mediumId: $mediumId})" +
-                    "ON CREATE SET m.mediumType = $mediumType, m.createTime = $createTime";
+                    "ON CREATE SET m.mediumType = $mediumType, m.createTime = localDateTime($createTime)";
 
             DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
             client.execute(queryString, queryParams);
@@ -815,14 +818,14 @@ public class DummyDb extends Db {
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("personId", w4.getPersonId());
             queryParams.put("accountId", w4.getAccountId());
-            queryParams.put("time", w4.getTime().getTime());
+            queryParams.put("time", DATE_FORMAT.format(w4.getTime()));
             queryParams.put("accountBlocked", w4.getAccountBlocked());
             queryParams.put("accountType", w4.getAccountType());
 
             String queryString = "MATCH (p:Person {id: $personId}) " +
                     "CREATE (p)-[:own {createTime: $time}]->" +
                     "(:Account {id: $accountId, " +
-                    "createTime: $time, isBlocked: $accountBlocked, accountType: $accountType})";
+                    "createTime: localDateTime($time), isBlocked: $accountBlocked, accountType: $accountType})";
 
             DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
             client.execute(queryString, queryParams);
@@ -840,14 +843,14 @@ public class DummyDb extends Db {
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("companyId", w5.getCompanyId());
             queryParams.put("accountId", w5.getAccountId());
-            queryParams.put("time", w5.getTime().getTime());
+            queryParams.put("time", DATE_FORMAT.format(w5.getTime()));
             queryParams.put("accountBlocked", w5.getAccountBlocked());
             queryParams.put("accountType", w5.getAccountType());
 
             String queryString = "MATCH (c:Company {id: $companyId}) " +
                     "CREATE (c)-[:own {createTime: $time}]->" +
                     "(:Account {accountId: $accountId, " +
-                    "createTime: $time, isBlocked: $accountBlocked, type: $accountType})";
+                    "createTime: localDateTime($time), isBlocked: $accountBlocked, type: $accountType})";
 
             DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
             client.execute(queryString, queryParams);
@@ -865,15 +868,15 @@ public class DummyDb extends Db {
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("personId", w6.getPersonId());
             queryParams.put("loanId", w6.getLoanId());
-            queryParams.put("time", w6.getTime().getTime());
+            queryParams.put("time", DATE_FORMAT.format(w6.getTime()));
             queryParams.put("balance", w6.getBalance());
             queryParams.put("loanAmount", w6.getLoanAmount());
 
             String queryString = "MATCH (p:Person {personId: $personId}) " +
                     "MERGE (l:Loan {loanId: $loanId}) " +
                     "SET l.loanAmount = $loanAmount, " +
-                    "l.balance = $balance, l.createTime = $time " +
-                    "CREATE (l)<-[:apply {createTime: $time}]-(p)";
+                    "l.balance = $balance, l.createTime = localDateTime($time) " +
+                    "CREATE (l)<-[:apply {createTime: localDateTime($time)}]-(p)";
 
             DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
             client.execute(queryString, queryParams);
@@ -891,15 +894,15 @@ public class DummyDb extends Db {
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("companyId", w7.getCompanyId());
             queryParams.put("loanId", w7.getLoanId());
-            queryParams.put("time", w7.getTime().getTime());
+            queryParams.put("time", DATE_FORMAT.format(w7.getTime()));
             queryParams.put("balance", w7.getBalance());
             queryParams.put("loanAmount", w7.getLoanAmount());
 
             String queryString = "MATCH (c:Company {companyId: $companyId}) " +
                     "MERGE (l:Loan {loanId: $loanId}) " +
                     "SET l.loanAmount = $loanAmount, " +
-                    "l.balance = $balance, l.createTime = $time " +
-                    "CREATE (l)<-[:apply {createTime: $time}]-(c)";
+                    "l.balance = $balance, l.createTime = localDateTime($time) " +
+                    "CREATE (l)<-[:apply {createTime: localDateTime($time)}]-(c)";
 
             DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
             client.execute(queryString, queryParams);
@@ -917,12 +920,12 @@ public class DummyDb extends Db {
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("companyId", w8.getCompanyId());
             queryParams.put("personId", w8.getPersonId());
-            queryParams.put("time", w8.getTime().getTime());
+            queryParams.put("time", DATE_FORMAT.format(w8.getTime()));
             queryParams.put("ratio", w8.getRatio());
 
             String queryString = "MATCH (c:Company {companyId: $companyId}) " +
                     "MATCH (p:Person {personId: $personId}) " +
-                    "CREATE (p)-[:invest {createTime: $time, ratio: $ratio}]->(c)";
+                    "CREATE (p)-[:invest {createTime: localDateTime($time), ratio: $ratio}]->(c)";
 
             DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
             client.execute(queryString, queryParams);
@@ -940,12 +943,12 @@ public class DummyDb extends Db {
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("companyId1", w9.getCompanyId1());
             queryParams.put("companyId2", w9.getCompanyId2());
-            queryParams.put("time", w9.getTime().getTime());
+            queryParams.put("time", DATE_FORMAT.format(w9.getTime()));
             queryParams.put("ratio", w9.getRatio());
 
             String queryString = "MATCH (c1:Company {companyId: $companyId1}) " +
                     "MATCH (c2:Company {companyId: $companyId2}) " +
-                    "CREATE (c1)-[:invest {createTime: $time, ratio: $ratio}]->(c2)";
+                    "CREATE (c1)-[:invest {createTime: localDateTime($time), ratio: $ratio}]->(c2)";
 
             DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
             client.execute(queryString, queryParams);
@@ -963,11 +966,11 @@ public class DummyDb extends Db {
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("personId1", w10.getPersonId1());
             queryParams.put("personId2", w10.getPersonId2());
-            queryParams.put("time", w10.getTime().getTime());
+            queryParams.put("time", DATE_FORMAT.format(w10.getTime()));
 
             String queryString = "MATCH (p1:Person {personId: $personId1}) " +
                     "MATCH (p2:Person {personId: $personId2}) " +
-                    "CREATE (p1)-[:guarantee {createTime: $time}]->(p2)";
+                    "CREATE (p1)-[:guarantee {createTime: localDateTime($time)}]->(p2)";
 
             DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
             client.execute(queryString, queryParams);
@@ -985,11 +988,11 @@ public class DummyDb extends Db {
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("companyId1", w11.getCompanyId1());
             queryParams.put("companyId2", w11.getCompanyId2());
-            queryParams.put("time", w11.getTime().getTime());
+            queryParams.put("time", DATE_FORMAT.format(w11.getTime()));
 
             String queryString = "MATCH (c1:Company {companyId: $companyId1}) " +
                     "MATCH (c2:Company {companyId: $companyId2}) " +
-                    "CREATE (c1)-[:guarantee {createTime: $time}]->(c2)";
+                    "CREATE (c1)-[:guarantee {createTime: localDateTime($time)}]->(c2)";
 
             DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
             client.execute(queryString, queryParams);
@@ -1007,12 +1010,12 @@ public class DummyDb extends Db {
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("accountId1", w12.getAccountId1());
             queryParams.put("accountId2", w12.getAccountId2());
-            queryParams.put("time", w12.getTime().getTime());
+            queryParams.put("time", DATE_FORMAT.format(w12.getTime()));
             queryParams.put("amount", w12.getAmount());
 
             String queryString = "MATCH (a1:Account {accountId: $accountId1}) " +
                     "MATCH (a2:Account {accountId: $accountId2}) " +
-                    "CREATE (a1)-[:transfer {createTime: $time, amount: $amount}]->(a2)";
+                    "CREATE (a1)-[:transfer {createTime: localDateTime($time), amount: $amount}]->(a2)";
 
             DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
             client.execute(queryString, queryParams);
@@ -1030,12 +1033,12 @@ public class DummyDb extends Db {
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("accountId1", w13.getAccountId1());
             queryParams.put("accountId2", w13.getAccountId2());
-            queryParams.put("time", w13.getTime().getTime());
+            queryParams.put("time", DATE_FORMAT.format(w13.getTime()));
             queryParams.put("amount", w13.getAmount());
 
             String queryString = "MATCH (a1:Account {accountId: $accountId1}) " +
                     "MATCH (a2:Account {accountId: $accountId2}) " +
-                    "CREATE (a1)-[:withdraw {createTime: $time, amount: $amount}]->(a2)";
+                    "CREATE (a1)-[:withdraw {createTime: localDateTime($time), amount: $amount}]->(a2)";
 
             DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
             client.execute(queryString, queryParams);
@@ -1053,12 +1056,12 @@ public class DummyDb extends Db {
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("accountId", w14.getAccountId());
             queryParams.put("loanId", w14.getLoanId());
-            queryParams.put("time", w14.getTime().getTime());
+            queryParams.put("time", DATE_FORMAT.format(w14.getTime()));
             queryParams.put("amount", w14.getAmount());
 
             String queryString = "MATCH (a:Account {accountId: $accountId}) " +
                     "MATCH (l:Loan {loanId: $loanId}) " +
-                    "CREATE (a)-[:repay {createTime: $time, amount: $amount}]->(l)";
+                    "CREATE (a)-[:repay {createTime: localDateTime($time), amount: $amount}]->(l)";
 
             DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
             client.execute(queryString, queryParams);
@@ -1076,12 +1079,12 @@ public class DummyDb extends Db {
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("accountId", w15.getAccountId());
             queryParams.put("loanId", w15.getLoanId());
-            queryParams.put("time", w15.getTime().getTime());
+            queryParams.put("time", DATE_FORMAT.format(w15.getTime()));
             queryParams.put("amount", w15.getAmount());
 
             String queryString = "MATCH (a:Account {accountId: $accountId}) " +
                     "MATCH (l:Loan {loanId: $loanId}) " +
-                    "CREATE (l)-[:deposit {createTime: $time, amount: $amount}]->(a)";
+                    "CREATE (l)-[:deposit {createTime: localDateTime($time), amount: $amount}]->(a)";
 
             DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
             client.execute(queryString, queryParams);
@@ -1099,11 +1102,11 @@ public class DummyDb extends Db {
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("accountId", w16.getAccountId());
             queryParams.put("mediumId", w16.getMediumId());
-            queryParams.put("time", w16.getTime().getTime());
+            queryParams.put("time", DATE_FORMAT.format(w16.getTime()));
 
             String queryString = "MATCH (a:Account {accountId: $accountId}) " +
                     "MATCH (m:Medium {mediumId: $mediumId}) " +
-                    "CREATE (m)-[:signIn {createTime: $time}]->(a)";
+                    "CREATE (m)-[:signIn {createTime: localDateTime($time)}]->(a)";
 
             DummyDbConnectionState.BasicClient client = dummyDbConnectionState.client();
             client.execute(queryString, queryParams);
