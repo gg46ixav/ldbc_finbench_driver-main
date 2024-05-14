@@ -8,11 +8,11 @@ import org.ldbcouncil.finbench.driver.DbConnectionState;
 import org.neo4j.driver.*;
 import org.neo4j.driver.exceptions.NoSuchRecordException;
 
-public class DummyDbConnectionState extends DbConnectionState {
+public class CypherDbConnectionState extends DbConnectionState {
 
-    static class BasicClient {
+    static class CypherClient {
         private final Driver driver;
-        BasicClient(String connectionUrl) {
+        CypherClient(String connectionUrl) {
             driver = GraphDatabase.driver(connectionUrl);
         }
         String execute(String queryString, Map<String, Object> queryParams) {
@@ -28,19 +28,19 @@ public class DummyDbConnectionState extends DbConnectionState {
         }
     }
 
-    private final BasicClient basicClient;
+    private final CypherClient cypherClient;
 
-    public DummyDbConnectionState(String connectionUrl) {
-        basicClient = new BasicClient(connectionUrl);
+    public CypherDbConnectionState(String connectionUrl) {
+        cypherClient = new CypherClient(connectionUrl);
     }
 
-    BasicClient client() {
-        return basicClient;
+    CypherClient client() {
+        return cypherClient;
     }
 
     @Override
     public void close() throws IOException {
-        basicClient.close();
+        cypherClient.close();
     }
 
 }

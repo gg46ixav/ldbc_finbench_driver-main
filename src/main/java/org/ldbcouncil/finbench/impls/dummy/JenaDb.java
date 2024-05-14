@@ -1,6 +1,7 @@
 package org.ldbcouncil.finbench.impls.dummy;
 
 import java.io.IOException;
+import java.net.ProtocolException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -16,22 +17,21 @@ import org.ldbcouncil.finbench.driver.log.LoggingService;
 import org.ldbcouncil.finbench.driver.workloads.transaction.LdbcNoResult;
 import org.ldbcouncil.finbench.driver.workloads.transaction.queries.*;
 
-public class DummyDb extends Db {
-    static Logger logger = LogManager.getLogger("DummyDb");
+public class JenaDb extends Db {
+    static Logger logger = LogManager.getLogger("JenaDb");
 
-    private CypherDbConnectionState connectionState = null;
+    private JenaDbConnectionState connectionState = null;
     private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
 
     @Override
     protected void onInit(Map<String, String> map, LoggingService loggingService) throws DbException {
 
-        //String connectionUrl = "bolt://localhost:7690";
-
-        String connectionUrl = "bolt://localhost:7689";
-        connectionState = new CypherDbConnectionState(connectionUrl);
-        logger.info("DummyDb initialized");
+        String connectionUrl = "http://localhost:3030/Finbench_sf_0.01/update";
+        connectionState = new JenaDbConnectionState(connectionUrl);
+        logger.info("JenaDb initialized");
 
         // complex reads
+        /*
         registerOperationHandler(ComplexRead1.class, ComplexRead1Handler.class);
         registerOperationHandler(ComplexRead2.class, ComplexRead2Handler.class);
         registerOperationHandler(ComplexRead3.class, ComplexRead3Handler.class);
@@ -56,9 +56,12 @@ public class DummyDb extends Db {
         registerOperationHandler(SimpleRead5.class, SimpleRead5Handler.class);
         registerOperationHandler(SimpleRead6.class, SimpleRead6Handler.class);
 
+
+         */
         // writes
 
         registerOperationHandler(Write1.class, Write1Handler.class);
+        /*
         registerOperationHandler(Write2.class, Write2Handler.class);
         registerOperationHandler(Write3.class, Write3Handler.class);
         registerOperationHandler(Write4.class, Write4Handler.class);
@@ -74,10 +77,15 @@ public class DummyDb extends Db {
         registerOperationHandler(Write14.class, Write14Handler.class);
         registerOperationHandler(Write15.class, Write15Handler.class);
         registerOperationHandler(Write16.class, Write16Handler.class);
+
+         */
+        /*
         registerOperationHandler(Write17.class, Write17Handler.class);
         registerOperationHandler(Write18.class, Write18Handler.class);
         registerOperationHandler(Write19.class, Write19Handler.class);
 
+
+         */
         /*
         // read-writes
         registerOperationHandler(ReadWrite1.class, ReadWrite1Handler.class);
@@ -89,7 +97,7 @@ public class DummyDb extends Db {
 
     @Override
     protected void onClose() throws IOException {
-        logger.info("DummyDb closed");
+        logger.info("JenaDb closed");
     }
 
     @Override
@@ -97,9 +105,9 @@ public class DummyDb extends Db {
         return connectionState;
     }
 
-    public static class ComplexRead1Handler implements OperationHandler<ComplexRead1, CypherDbConnectionState> {
+    public static class ComplexRead1Handler implements OperationHandler<ComplexRead1, JenaDbConnectionState> {
         @Override
-        public void executeOperation(ComplexRead1 cr1, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(ComplexRead1 cr1, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(cr1);
 
@@ -117,8 +125,8 @@ public class DummyDb extends Db {
                     + "RETURN other.accountId AS otherId, length(p) AS accountDistance, medium.mediumId AS mediumId, medium.mediumType AS mediumType "
                     + "ORDER BY accountDistance ASC";
 
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            String result = client.execute(queryString, queryParams);
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            String result = client.execute(queryString);
 
             List<ComplexRead1Result> complexRead1Results = null;
             try {
@@ -133,9 +141,9 @@ public class DummyDb extends Db {
         }
     }
 
-    public static class ComplexRead2Handler implements OperationHandler<ComplexRead2, CypherDbConnectionState> {
+    public static class ComplexRead2Handler implements OperationHandler<ComplexRead2, JenaDbConnectionState> {
         @Override
-        public void executeOperation(ComplexRead2 cr2, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(ComplexRead2 cr2, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(cr2.toString());
 
@@ -156,8 +164,8 @@ public class DummyDb extends Db {
                     "RETURN other.id AS otherId, sum(loan.amount) AS sumLoanAmount, sum(loan.balance) AS sumLoanBalance " +
                     "ORDER BY sumLoanAmount DESC";
 
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            String result = client.execute(queryString, queryParams);
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            String result = client.execute(queryString);
 
             List<ComplexRead2Result> complexRead2Results = null;
             try {
@@ -170,9 +178,9 @@ public class DummyDb extends Db {
         }
     }
 
-    public static class ComplexRead3Handler implements OperationHandler<ComplexRead3, CypherDbConnectionState> {
+    public static class ComplexRead3Handler implements OperationHandler<ComplexRead3, JenaDbConnectionState> {
         @Override
-        public void executeOperation(ComplexRead3 cr3, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(ComplexRead3 cr3, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(cr3.toString());
 
@@ -187,8 +195,8 @@ public class DummyDb extends Db {
                     "WHERE all(e IN edge WHERE localDateTime($start_time) < e.createTime < localDateTime($end_time)) " +
                     "RETURN length(path1) AS shortestPathLength";
 
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            String result = client.execute(queryString, queryParams);
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            String result = client.execute(queryString);
 
             List<ComplexRead3Result> complexRead3Results = null;
             try {
@@ -201,9 +209,9 @@ public class DummyDb extends Db {
         }
     }
 
-    public static class ComplexRead4Handler implements OperationHandler<ComplexRead4, CypherDbConnectionState> {
+    public static class ComplexRead4Handler implements OperationHandler<ComplexRead4, JenaDbConnectionState> {
         @Override
-        public void executeOperation(ComplexRead4 cr4, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(ComplexRead4 cr4, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(cr4.toString());
 
@@ -234,8 +242,8 @@ public class DummyDb extends Db {
                     "RETURN top.otherId, top.numEdge2, top.sumEdge2Amount, top.maxEdge2Amount, top.numEdge3, " +
                     "top.sumEdge3Amount, top.maxEdge3Amount";
 
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            String result = client.execute(queryString, queryParams);
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            String result = client.execute(queryString);
 
             List<ComplexRead4Result> complexRead4Results = null;
             try {
@@ -248,9 +256,9 @@ public class DummyDb extends Db {
         }
     }
 
-    public static class ComplexRead5Handler implements OperationHandler<ComplexRead5, CypherDbConnectionState> {
+    public static class ComplexRead5Handler implements OperationHandler<ComplexRead5, JenaDbConnectionState> {
         @Override
-        public void executeOperation(ComplexRead5 cr5, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(ComplexRead5 cr5, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(cr5.toString());
 
@@ -270,8 +278,8 @@ public class DummyDb extends Db {
                     "RETURN p AS path " +
                     "ORDER BY length(p) DESC";
 
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            String result = client.execute(queryString, queryParams);
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            String result = client.execute(queryString);
 
             List<ComplexRead5Result> complexRead5Results = null;
             try {
@@ -284,9 +292,9 @@ public class DummyDb extends Db {
         }
     }
 
-    public static class ComplexRead6Handler implements OperationHandler<ComplexRead6, CypherDbConnectionState> {
+    public static class ComplexRead6Handler implements OperationHandler<ComplexRead6, JenaDbConnectionState> {
         @Override
-        public void executeOperation(ComplexRead6 cr6, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(ComplexRead6 cr6, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(cr6.toString());
 
@@ -305,8 +313,8 @@ public class DummyDb extends Db {
                     "sum(edge2.amount) AS sumEdge2Amount " +
                     "ORDER BY sumEdge2Amount DESC";
 
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            String result = client.execute(queryString, queryParams);
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            String result = client.execute(queryString);
 
             List<ComplexRead6Result> complexRead6Results = null;
             try {
@@ -319,9 +327,9 @@ public class DummyDb extends Db {
         }
     }
 
-    public static class ComplexRead7Handler implements OperationHandler<ComplexRead7, CypherDbConnectionState> {
+    public static class ComplexRead7Handler implements OperationHandler<ComplexRead7, JenaDbConnectionState> {
         @Override
-        public void executeOperation(ComplexRead7 cr7, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(ComplexRead7 cr7, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(cr7.toString());
 
@@ -344,8 +352,8 @@ public class DummyDb extends Db {
                     "ELSE 0 " +
                     "END AS inoutRatio";
 
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            String result = client.execute(queryString, queryParams);
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            String result = client.execute(queryString);
 
             List<ComplexRead7Result> complexRead7Results = null;
             try {
@@ -358,9 +366,9 @@ public class DummyDb extends Db {
         }
     }
 
-    public static class ComplexRead8Handler implements OperationHandler<ComplexRead8, CypherDbConnectionState> {
+    public static class ComplexRead8Handler implements OperationHandler<ComplexRead8, JenaDbConnectionState> {
         @Override
-        public void executeOperation(ComplexRead8 cr8, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(ComplexRead8 cr8, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(cr8.toString());
 
@@ -383,8 +391,8 @@ public class DummyDb extends Db {
                     "RETURN dst.id AS dstId, round(1000 * inflow/loan.loanAmount) / 1000 AS ratio, distanceFromLoan " +
                     "ORDER BY distanceFromLoan DESC, ratio DESC";
 
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            String result = client.execute(queryString, queryParams);
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            String result = client.execute(queryString);
 
             List<ComplexRead8Result> complexRead8Results = null;
             try {
@@ -397,9 +405,9 @@ public class DummyDb extends Db {
         }
     }
 
-    public static class ComplexRead9Handler implements OperationHandler<ComplexRead9, CypherDbConnectionState> {
+    public static class ComplexRead9Handler implements OperationHandler<ComplexRead9, JenaDbConnectionState> {
         @Override
-        public void executeOperation(ComplexRead9 cr9, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(ComplexRead9 cr9, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(cr9.toString());
 
@@ -436,8 +444,8 @@ public class DummyDb extends Db {
                     "ELSE 0 " +
                     "END AS ratioIn";
 
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            String result = client.execute(queryString, queryParams);
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            String result = client.execute(queryString);
 
             List<ComplexRead9Result> complexRead9Results = null;
             try {
@@ -450,9 +458,9 @@ public class DummyDb extends Db {
         }
     }
 
-    public static class ComplexRead10Handler implements OperationHandler<ComplexRead10, CypherDbConnectionState> {
+    public static class ComplexRead10Handler implements OperationHandler<ComplexRead10, JenaDbConnectionState> {
         @Override
-        public void executeOperation(ComplexRead10 cr10, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(ComplexRead10 cr10, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(cr10.toString());
 
@@ -470,8 +478,8 @@ public class DummyDb extends Db {
                     "WITH gds.similarity.jaccard(collect(m1.id), collect(m2.id)) AS jaccardSimilarity " +
                     "RETURN round(1000 * jaccardSimilarity) / 1000 AS jaccardSimilarity";
 
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            String result = client.execute(queryString, queryParams);
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            String result = client.execute(queryString);
 
             List<ComplexRead10Result> complexRead10Results = null;
             try {
@@ -484,9 +492,9 @@ public class DummyDb extends Db {
         }
     }
 
-    public static class ComplexRead11Handler implements OperationHandler<ComplexRead11, CypherDbConnectionState> {
+    public static class ComplexRead11Handler implements OperationHandler<ComplexRead11, JenaDbConnectionState> {
         @Override
-        public void executeOperation(ComplexRead11 cr11, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(ComplexRead11 cr11, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(cr11.toString());
 
@@ -501,8 +509,8 @@ public class DummyDb extends Db {
                     "MATCH (person)-[:apply]->(loan:Loan) " +
                     "RETURN sum(loan.loanAmount) AS sumLoanAmount, count(loan) AS numLoans";
 
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            String result = client.execute(queryString, queryParams);
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            String result = client.execute(queryString);
 
             List<ComplexRead11Result> complexRead11Results = null;
             try {
@@ -515,9 +523,9 @@ public class DummyDb extends Db {
         }
     }
 
-    public static class ComplexRead12Handler implements OperationHandler<ComplexRead12, CypherDbConnectionState> {
+    public static class ComplexRead12Handler implements OperationHandler<ComplexRead12, JenaDbConnectionState> {
         @Override
-        public void executeOperation(ComplexRead12 cr12, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(ComplexRead12 cr12, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(cr12.toString());
 
@@ -534,8 +542,8 @@ public class DummyDb extends Db {
                     "RETURN compAcc.id AS compAccountId, sum(edge2.amount) AS sumEdge2Amount " +
                     "ORDER BY sumEdge2Amount DESC";
 
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            String result = client.execute(queryString, queryParams);
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            String result = client.execute(queryString);
 
             List<ComplexRead12Result> complexRead12Results = null;
             try {
@@ -548,9 +556,9 @@ public class DummyDb extends Db {
         }
     }
 
-    public static class SimpleRead1Handler implements OperationHandler<SimpleRead1, CypherDbConnectionState> {
+    public static class SimpleRead1Handler implements OperationHandler<SimpleRead1, JenaDbConnectionState> {
         @Override
-        public void executeOperation(SimpleRead1 sr1, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(SimpleRead1 sr1, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(sr1.toString());
 
@@ -574,8 +582,8 @@ public class DummyDb extends Db {
             }
 
              */
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            String result = client.execute(queryString, queryParams);
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            String result = client.execute(queryString);
 
             List<SimpleRead1Result> simpleRead1Results = null;
             try {
@@ -589,9 +597,9 @@ public class DummyDb extends Db {
         }
     }
 
-    public static class SimpleRead2Handler implements OperationHandler<SimpleRead2, CypherDbConnectionState> {
+    public static class SimpleRead2Handler implements OperationHandler<SimpleRead2, JenaDbConnectionState> {
         @Override
-        public void executeOperation(SimpleRead2 sr2, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(SimpleRead2 sr2, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(sr2.toString());
 
@@ -609,8 +617,8 @@ public class DummyDb extends Db {
                     "    sum(edge1.amount), max(edge1.amount), count(edge1), " +
                     "    sum(edge2.amount), max(edge2.amount), count(edge2)";
 
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            String result = client.execute(queryString, queryParams);
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            String result = client.execute(queryString);
 
             List<SimpleRead2Result> simpleRead2Results = null;
             try {
@@ -624,9 +632,9 @@ public class DummyDb extends Db {
         }
     }
 
-    public static class SimpleRead3Handler implements OperationHandler<SimpleRead3, CypherDbConnectionState> {
+    public static class SimpleRead3Handler implements OperationHandler<SimpleRead3, JenaDbConnectionState> {
         @Override
-        public void executeOperation(SimpleRead3 sr3, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(SimpleRead3 sr3, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(sr3.toString());
 
@@ -647,8 +655,8 @@ public class DummyDb extends Db {
                     "ELSE 0 " +
                     "END AS blockRatio";
 
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            String result = client.execute(queryString, queryParams);
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            String result = client.execute(queryString);
 
             List<SimpleRead3Result> simpleRead3Results = null;
             try {
@@ -661,9 +669,9 @@ public class DummyDb extends Db {
         }
     }
 
-    public static class SimpleRead4Handler implements OperationHandler<SimpleRead4, CypherDbConnectionState> {
+    public static class SimpleRead4Handler implements OperationHandler<SimpleRead4, JenaDbConnectionState> {
         @Override
-        public void executeOperation(SimpleRead4 sr4, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(SimpleRead4 sr4, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(sr4.toString());
 
@@ -678,8 +686,8 @@ public class DummyDb extends Db {
                     "AND edge.amount > $threshold " +
                     "RETURN dst.id AS dstId, count(edge) AS numEdges, sum(edge.amount) AS sumAmount";
 
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            String result = client.execute(queryString, queryParams);
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            String result = client.execute(queryString);
 
             List<SimpleRead4Result> simpleRead4Results = null;
             try {
@@ -692,9 +700,9 @@ public class DummyDb extends Db {
         }
     }
 
-    public static class SimpleRead5Handler implements OperationHandler<SimpleRead5, CypherDbConnectionState> {
+    public static class SimpleRead5Handler implements OperationHandler<SimpleRead5, JenaDbConnectionState> {
         @Override
-        public void executeOperation(SimpleRead5 sr5, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(SimpleRead5 sr5, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(sr5.toString());
 
@@ -709,8 +717,8 @@ public class DummyDb extends Db {
                     "  AND edge.amount > $threshold " +
                     "RETURN src.id AS srcId, count(edge) AS numEdges, sum(edge.amount) AS sumAmount";
 
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            String result = client.execute(queryString, queryParams);
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            String result = client.execute(queryString);
 
             List<SimpleRead5Result> simpleRead5Results = null;
             try {
@@ -723,9 +731,9 @@ public class DummyDb extends Db {
         }
     }
 
-    public static class SimpleRead6Handler implements OperationHandler<SimpleRead6, CypherDbConnectionState> {
+    public static class SimpleRead6Handler implements OperationHandler<SimpleRead6, JenaDbConnectionState> {
         @Override
-        public void executeOperation(SimpleRead6 sr6, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(SimpleRead6 sr6, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(sr6.toString());
 
@@ -741,8 +749,8 @@ public class DummyDb extends Db {
                     "  AND localDateTime($start_time) < e2.createTime < localDateTime($end_time) " +
                     "RETURN collect(dst.accountId) AS dstId";
 
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            String result = client.execute(queryString, queryParams);
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            String result = client.execute(queryString);
 
             List<SimpleRead6Result> simpleRead6Results = null;
             try {
@@ -755,310 +763,206 @@ public class DummyDb extends Db {
         }
     }
 
-    public static class Write1Handler implements OperationHandler<Write1, CypherDbConnectionState> {
+    public static class Write1Handler implements OperationHandler<Write1, JenaDbConnectionState> {
         @Override
-        public void executeOperation(Write1 w1, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(Write1 w1, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w1.toString());
 
             //Add a person Node
-            Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("personId", w1.getPersonId());
-            queryParams.put("personName", w1.getPersonName());
-            queryParams.put("createTime", DATE_FORMAT.format(new Date()));
-            queryParams.put("isBlocked", w1.getIsBlocked());
 
-            String queryString = "MERGE (p:Person {personId: $personId})" +
-                    "ON CREATE SET p.personName = $personName, " +
-                    "p.isBlocked = $isBlocked, p.createTime = localDateTime($createTime)";
+            String queryString = "PREFIX ex: <http://example.org/> " +
+                    "INSERT DATA{" +
+                    "ex:" + w1.getPersonId() + " a ex:Person ;" +
+                    "ex:personName \"" + w1.getPersonName() + "\" ;" +
+                    "ex:isBlocked \"" + w1.getIsBlocked() + "\"^^<http://www.w3.org/2001/XMLSchema#boolean> ;" +
+                    "ex:createTime \"" + DATE_FORMAT.format(new Date()) + "\"^^<http://www.w3.org/2001/XMLSchema#dateTime> ." +
+                    "}";
 
-            /*
-            PREFIX ex: <http://example.org/>
-            INSERT DATA{
-                    ex:? a ex:Person ;
-                     ex:personName "?" ;
-                     ex:isBlocked ? ;
-                     ex:createTime "?"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-            }
-             */
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            client.execute(queryString, queryParams);
+
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            client.execute(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w1);
         }
     }
 
-    public static class Write2Handler implements OperationHandler<Write2, CypherDbConnectionState> {
+    public static class Write2Handler implements OperationHandler<Write2, JenaDbConnectionState> {
         @Override
-        public void executeOperation(Write2 w2, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(Write2 w2, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w2.toString());
 
             //Add a Company Node
-            Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("companyId", w2.getCompanyId());
-            queryParams.put("companyName", w2.getCompanyName());
-            queryParams.put("createTime", DATE_FORMAT.format(new Date()));
-            queryParams.put("isBlocked", w2.getIsBlocked());
 
-            String queryString = "MERGE (c:Company {companyId: $companyId})" +
-                    "ON CREATE SET c.name = $companyName, " +
-                    "c.createTime = localDateTime($createTime), c.isBlocked = $isBlocked";
+            String queryString = "PREFIX ex: <http://example.org/> " +
+                    "INSERT DATA{" +
+                    "ex:" + w2.getCompanyId() + " a ex:Company ;" +
+                    "ex:companyName \"" + w2.getCompanyName() + "\" ;" +
+                    "ex:isBlocked \"" + w2.getIsBlocked() + "\"^^<http://www.w3.org/2001/XMLSchema#boolean> ;" +
+                    "ex:createTime \"" + DATE_FORMAT.format(new Date()) + "\"^^<http://www.w3.org/2001/XMLSchema#dateTime> ." +
+                    "}";
 
-            /*
-            PREFIX ex: <http://example.org/>
-            INSERT DATA{
-                    ex:? a ex:Company ;
-                     ex:companyName "?" ;
-                     ex:isBlocked ? ;
-                     ex:createTime "?"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-            }
-             */
-
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            client.execute(queryString, queryParams);
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            client.execute(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w2);
         }
     }
 
-    public static class Write3Handler implements OperationHandler<Write3, CypherDbConnectionState> {
+    public static class Write3Handler implements OperationHandler<Write3, JenaDbConnectionState> {
         @Override
-        public void executeOperation(Write3 w3, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(Write3 w3, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w3.toString());
 
             //Add a Medium Node
-            Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("mediumId", w3.getMediumId());
-            queryParams.put("mediumType", w3.getMediumType());
-            queryParams.put("createTime", DATE_FORMAT.format(new Date()));
 
-            String queryString = "MERGE (m:Medium {mediumId: $mediumId})" +
-                    "ON CREATE SET m.mediumType = $mediumType, m.createTime = localDateTime($createTime)";
+            String queryString = "PREFIX ex: <http://example.org/> " +
+                    "INSERT DATA{" +
+                    "ex:" + w3.getMediumId() + " a ex:Medium ;" +
+                    "ex:mediumType \"" + w3.getMediumType() + "\" ;" +
+                    "ex:createTime \"" + DATE_FORMAT.format(new Date()) + "\"^^<http://www.w3.org/2001/XMLSchema#dateTime> ." +
+                    "}";
 
-            /*
-            PREFIX ex: <http://example.org/>
-            INSERT DATA{
-                    ex:? a ex:Medium ;
-                     ex:mediumType "?" ;
-                     ex:createTime "?"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-            }
-             */
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            client.execute(queryString, queryParams);
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            client.execute(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w3);
         }
     }
 
-    public static class Write4Handler implements OperationHandler<Write4, CypherDbConnectionState> {
+    public static class Write4Handler implements OperationHandler<Write4, JenaDbConnectionState> {
         @Override
-        public void executeOperation(Write4 w4, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(Write4 w4, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w4.toString());
 
-            //Add an Account Node owned by Person
-            Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("personId", w4.getPersonId());
-            queryParams.put("accountId", w4.getAccountId());
-            queryParams.put("time", DATE_FORMAT.format(w4.getTime()));
-            queryParams.put("accountBlocked", w4.getAccountBlocked());
-            queryParams.put("accountType", w4.getAccountType());
+            String queryString = "PREFIX ex: <http://example.org/> " +
+                    "            INSERT DATA{ " +
+                    "                    << ex:" + w4.getPersonId() + " ex:ownPersonX ex:" + w4.getAccountId() + " >> " +
+                    "                     ex:accountBlocked \"" + w4.getAccountBlocked() + "\"^^<http://www.w3.org/2001/XMLSchema#boolean> ; " +
+                    "                     ex:accountType \"" + w4.getAccountType() +"\" ; " +
+                    "                     ex:createTime \""+ DATE_FORMAT.format(w4.getTime()) +"\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . " +
+                    "            }";
 
-            String queryString = "MATCH (p:Person {id: $personId}) " +
-                    "CREATE (p)-[:own {createTime: $time}]->" +
-                    "(:Account {id: $accountId, " +
-                    "createTime: localDateTime($time), isBlocked: $accountBlocked, accountType: $accountType})";
-
-            /*
-            PREFIX ex: <http://example.org/>
-            INSERT DATA{
-                    << ex:personId ex:ownPersonX ex:accountId >>
-                     ex:accountBlocked "?"^^<http://www.w3.org/2001/XMLSchema#boolean> ;
-                     ex:accountType "?" ;
-                     ex:createTime "?"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-            }
-             */
-
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            client.execute(queryString, queryParams);
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            client.execute(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w4);
         }
     }
 
-    public static class Write5Handler implements OperationHandler<Write5, CypherDbConnectionState> {
+    public static class Write5Handler implements OperationHandler<Write5, JenaDbConnectionState> {
         @Override
-        public void executeOperation(Write5 w5, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(Write5 w5, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w5.toString());
 
             //Add an Account Node owned by Company
-            Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("companyId", w5.getCompanyId());
-            queryParams.put("accountId", w5.getAccountId());
-            queryParams.put("time", DATE_FORMAT.format(w5.getTime()));
-            queryParams.put("accountBlocked", w5.getAccountBlocked());
-            queryParams.put("accountType", w5.getAccountType());
 
-            String queryString = "MATCH (c:Company {id: $companyId}) " +
-                    "CREATE (c)-[:own {createTime: $time}]->" +
-                    "(:Account {accountId: $accountId, " +
-                    "createTime: localDateTime($time), isBlocked: $accountBlocked, type: $accountType})";
+            String queryString = "PREFIX ex: <http://example.org/> " +
+                    "            INSERT DATA{ " +
+                    "                    << ex:" + w5.getCompanyId() + " ex:ownCompanyX ex:" + w5.getAccountId() + " >> " +
+                    "                     ex:accountBlocked \"" + w5.getAccountBlocked() + "\"^^<http://www.w3.org/2001/XMLSchema#boolean> ; " +
+                    "                     ex:accountType \"" + w5.getAccountType() +"\" ; " +
+                    "                     ex:createTime \""+ DATE_FORMAT.format(w5.getTime()) +"\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . " +
+                    "            }";
 
 
-            /*
-            PREFIX ex: <http://example.org/>
-            INSERT DATA{
-                    << ex:companyId ex:ownCompanyX ex:accountId >>
-                     ex:accountBlocked "?"^^<http://www.w3.org/2001/XMLSchema#boolean> ;
-                     ex:accountType "?" ;
-                     ex:createTime "?"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-            }
-             */
-
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            client.execute(queryString, queryParams);
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            client.execute(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w5);
         }
     }
 
-    public static class Write6Handler implements OperationHandler<Write6, CypherDbConnectionState> {
+    public static class Write6Handler implements OperationHandler<Write6, JenaDbConnectionState> {
         @Override
-        public void executeOperation(Write6 w6, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(Write6 w6, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w6.toString());
 
             //Add Loan applied by Person
-            Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("personId", w6.getPersonId());
-            queryParams.put("loanId", w6.getLoanId());
-            queryParams.put("time", DATE_FORMAT.format(w6.getTime()));
-            queryParams.put("balance", w6.getBalance());
-            queryParams.put("loanAmount", w6.getLoanAmount());
 
-            String queryString = "MATCH (p:Person {personId: $personId}) " +
-                    "MERGE (l:Loan {loanId: $loanId}) " +
-                    "SET l.loanAmount = $loanAmount, " +
-                    "l.balance = $balance, l.createTime = localDateTime($time) " +
-                    "CREATE (l)<-[:apply {createTime: localDateTime($time)}]-(p)";
+            String queryString = "PREFIX ex: <http://example.org/> " +
+                    "            INSERT DATA{ " +
+                    "                    << ex:" + w6.getPersonId() + " ex:applyPerson ex:" + w6.getLoanId() + " >> " +
+                    "                     ex:balance \"" + w6.getBalance() + "\"^^<http://www.w3.org/2001/XMLSchema#float> ; " +
+                    "                     ex:loanAmount \"" + w6.getLoanAmount() +"\" ; " +
+                    "                     ex:createTime \""+ DATE_FORMAT.format(w6.getTime()) +"\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . " +
+                    "            }";
 
-            /*
-            PREFIX ex: <http://example.org/>
-            INSERT DATA{
-                    << ex:loanId ex:applyPersonX ex:personId >>
-                     ex:balance "?"^^<http://www.w3.org/2001/XMLSchema#float> ;
-                     ex:loanAmount "?"^^<http://www.w3.org/2001/XMLSchema#float> ;
-                     ex:createTime "?"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-            }
-             */
-
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            client.execute(queryString, queryParams);
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            client.execute(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w6);
         }
     }
 
-    public static class Write7Handler implements OperationHandler<Write7, CypherDbConnectionState> {
+    public static class Write7Handler implements OperationHandler<Write7, JenaDbConnectionState> {
         @Override
-        public void executeOperation(Write7 w7, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(Write7 w7, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w7.toString());
 
             //Add Loan applied by Company
-            Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("companyId", w7.getCompanyId());
-            queryParams.put("loanId", w7.getLoanId());
-            queryParams.put("time", DATE_FORMAT.format(w7.getTime()));
-            queryParams.put("balance", w7.getBalance());
-            queryParams.put("loanAmount", w7.getLoanAmount());
 
-            String queryString = "MATCH (c:Company {companyId: $companyId}) " +
-                    "MERGE (l:Loan {loanId: $loanId}) " +
-                    "SET l.loanAmount = $loanAmount, " +
-                    "l.balance = $balance, l.createTime = localDateTime($time) " +
-                    "CREATE (l)<-[:apply {createTime: localDateTime($time)}]-(c)";
+            String queryString = "PREFIX ex: <http://example.org/> " +
+                    "            INSERT DATA{ " +
+                    "                    << ex:" + w7.getCompanyId() + " ex:applyCompanyX ex:" + w7.getLoanId() + " >> " +
+                    "                     ex:balance \"" + w7.getBalance() + "\"^^<http://www.w3.org/2001/XMLSchema#float> ; " +
+                    "                     ex:loanAmount \"" + w7.getLoanAmount() +"\" ; " +
+                    "                     ex:createTime \""+ DATE_FORMAT.format(w7.getTime()) +"\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . " +
+                    "            }";
 
-            /*
-            PREFIX ex: <http://example.org/>
-            INSERT DATA{
-                    << ex:loanId ex:applyCompanyX ex:companyId >>
-                     ex:balance "?"^^<http://www.w3.org/2001/XMLSchema#float> ;
-                     ex:loanAmount "?"^^<http://www.w3.org/2001/XMLSchema#float> ;
-                     ex:createTime "?"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-            }
-             */
 
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            client.execute(queryString, queryParams);
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            client.execute(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w7);
         }
     }
 
-    public static class Write8Handler implements OperationHandler<Write8, CypherDbConnectionState> {
+    public static class Write8Handler implements OperationHandler<Write8, JenaDbConnectionState> {
         @Override
-        public void executeOperation(Write8 w8, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(Write8 w8, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w8.toString());
 
             //Add Invest Between Person And Company
-            Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("companyId", w8.getCompanyId());
-            queryParams.put("personId", w8.getPersonId());
-            queryParams.put("time", DATE_FORMAT.format(w8.getTime()));
-            queryParams.put("ratio", w8.getRatio());
 
-            String queryString = "MATCH (c:Company {companyId: $companyId}) " +
-                    "MATCH (p:Person {personId: $personId}) " +
-                    "CREATE (p)-[:invest {createTime: localDateTime($time), ratio: $ratio}]->(c)";
+            String queryString = "PREFIX ex: <http://example.org/> " +
+                    "            INSERT DATA{ " +
+                    "                    << ex:" + w8.getPersonId() + " ex:investPersonX ex:" + w8.getCompanyId() + " >> " +
+                    "                     ex:ratio \"" + w8.getRatio() + "\"^^<http://www.w3.org/2001/XMLSchema#float> ; " +
+                    "                     ex:createTime \""+ DATE_FORMAT.format(w8.getTime()) +"\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . " +
+                    "            }";
 
-            /*
-            PREFIX ex: <http://example.org/>
-            INSERT DATA{
-                    << ex:personId ex:investCompanyX ex:companyId >>
-                     ex:ratio "?"^^<http://www.w3.org/2001/XMLSchema#float> ;
-                     ex:createTime "?"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-            }
-             */
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            client.execute(queryString, queryParams);
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            client.execute(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w8);
         }
     }
 
-    public static class Write9Handler implements OperationHandler<Write9, CypherDbConnectionState> {
+    public static class Write9Handler implements OperationHandler<Write9, JenaDbConnectionState> {
         @Override
-        public void executeOperation(Write9 w9, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(Write9 w9, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w9.toString());
 
             //Add Invest Between Company And Company
-            Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("companyId1", w9.getCompanyId1());
-            queryParams.put("companyId2", w9.getCompanyId2());
-            queryParams.put("time", DATE_FORMAT.format(w9.getTime()));
-            queryParams.put("ratio", w9.getRatio());
 
-            String queryString = "MATCH (c1:Company {companyId: $companyId1}) " +
-                    "MATCH (c2:Company {companyId: $companyId2}) " +
-                    "CREATE (c1)-[:invest {createTime: localDateTime($time), ratio: $ratio}]->(c2)";
+            String queryString = "PREFIX ex: <http://example.org/> " +
+                    "            INSERT DATA{ " +
+                    "                    << ex:" + w9.getCompanyId1() + " ex:investCompanyX ex:" + w9.getCompanyId2() + " >> " +
+                    "                     ex:ratio \"" + w9.getRatio() + "\"^^<http://www.w3.org/2001/XMLSchema#float> ; " +
+                    "                     ex:createTime \""+ DATE_FORMAT.format(w9.getTime()) +"\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . " +
+                    "            }";
 
 
-            /*
-            PREFIX ex: <http://example.org/>
-            INSERT DATA{
-                    << ex:companyId1 ex:investCompanyX ex:companyId2 >>
-                     ex:ratio "?"^^<http://www.w3.org/2001/XMLSchema#float> ;
-                     ex:createTime "?"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-            }
-             */
-
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            client.execute(queryString, queryParams);
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            client.execute(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w9);
         }
     }
 
-    public static class Write10Handler implements OperationHandler<Write10, CypherDbConnectionState> {
+    public static class Write10Handler implements OperationHandler<Write10, JenaDbConnectionState> {
         @Override
-        public void executeOperation(Write10 w10, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(Write10 w10, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w10.toString());
 
@@ -1068,183 +972,127 @@ public class DummyDb extends Db {
             queryParams.put("personId2", w10.getPersonId2());
             queryParams.put("time", DATE_FORMAT.format(w10.getTime()));
 
-            String queryString = "MATCH (p1:Person {personId: $personId1}) " +
-                    "MATCH (p2:Person {personId: $personId2}) " +
-                    "CREATE (p1)-[:guarantee {createTime: localDateTime($time)}]->(p2)";
+            String queryString = "PREFIX ex: <http://example.org/> " +
+                    "            INSERT DATA{ " +
+                    "                    << ex:" + w10.getPersonId1() + " ex:guaranteePersonX ex:" + w10.getPersonId2() + " >> " +
+                    "                     ex:createTime \""+ DATE_FORMAT.format(w10.getTime()) +"\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . " +
+                    "            }";
 
-            /*
-            PREFIX ex: <http://example.org/>
-            INSERT DATA{
-                    << ex:personId1 ex:guaranteeCompanyX ex:personId2 >>
-                     ex:createTime "?"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-            }
-             */
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            client.execute(queryString, queryParams);
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            client.execute(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w10);
         }
     }
 
-    public static class Write11Handler implements OperationHandler<Write11, CypherDbConnectionState> {
+    public static class Write11Handler implements OperationHandler<Write11, JenaDbConnectionState> {
         @Override
-        public void executeOperation(Write11 w11, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(Write11 w11, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w11.toString());
 
             //Add Guarantee Between Companies
-            Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("companyId1", w11.getCompanyId1());
-            queryParams.put("companyId2", w11.getCompanyId2());
-            queryParams.put("time", DATE_FORMAT.format(w11.getTime()));
 
-            String queryString = "MATCH (c1:Company {companyId: $companyId1}) " +
-                    "MATCH (c2:Company {companyId: $companyId2}) " +
-                    "CREATE (c1)-[:guarantee {createTime: localDateTime($time)}]->(c2)";
+            String queryString = "PREFIX ex: <http://example.org/> " +
+                    "            INSERT DATA{ " +
+                    "                    << ex:" + w11.getCompanyId1() + " ex:guaranteeCompanyX ex:" + w11.getCompanyId2() + " >> " +
+                    "                     ex:createTime \""+ DATE_FORMAT.format(w11.getTime()) +"\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . " +
+                    "            }";
 
-            /*
-            PREFIX ex: <http://example.org/>
-            INSERT DATA{
-                    << ex:companyId1 ex:guaranteeCompanyX ex:companyId2 >>
-                     ex:createTime "?"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-            }
-             */
 
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            client.execute(queryString, queryParams);
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            client.execute(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w11);
         }
     }
 
-    public static class Write12Handler implements OperationHandler<Write12, CypherDbConnectionState> {
+    public static class Write12Handler implements OperationHandler<Write12, JenaDbConnectionState> {
         @Override
-        public void executeOperation(Write12 w12, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(Write12 w12, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w12.toString());
 
             //Add Transfer Between Accounts
-            Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("accountId1", w12.getAccountId1());
-            queryParams.put("accountId2", w12.getAccountId2());
-            queryParams.put("time", DATE_FORMAT.format(w12.getTime()));
-            queryParams.put("amount", w12.getAmount());
 
-            String queryString = "MATCH (a1:Account {accountId: $accountId1}) " +
-                    "MATCH (a2:Account {accountId: $accountId2}) " +
-                    "CREATE (a1)-[:transfer {createTime: localDateTime($time), amount: $amount}]->(a2)";
+            String queryString = "PREFIX ex: <http://example.org/> " +
+                    "            INSERT DATA{ " +
+                    "                    << ex:" + w12.getAccountId1() + " ex:transfer ex:" + w12.getAccountId2() + " >> " +
+                    "                     ex:amount \"" + w12.getAmount() + "\"^^<http://www.w3.org/2001/XMLSchema#float> ; " +
+                    "                     ex:createTime \""+ DATE_FORMAT.format(w12.getTime()) +"\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . " +
+                    "            }";
 
-            /*
-            PREFIX ex: <http://example.org/>
-            INSERT DATA{
-                    << ex:accountId1 ex:transferAccountX ex:accountId2 >>
-                     ex:amount "?"^^<http://www.w3.org/2001/XMLSchema#float> ;
-                     ex:createTime "?"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-            }
-             */
-
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            client.execute(queryString, queryParams);
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            client.execute(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w12);
         }
     }
 
-    public static class Write13Handler implements OperationHandler<Write13, CypherDbConnectionState> {
+    public static class Write13Handler implements OperationHandler<Write13, JenaDbConnectionState> {
         @Override
-        public void executeOperation(Write13 w13, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(Write13 w13, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w13.toString());
 
             //Add Withdraw Between Accounts
-            Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("accountId1", w13.getAccountId1());
-            queryParams.put("accountId2", w13.getAccountId2());
-            queryParams.put("time", DATE_FORMAT.format(w13.getTime()));
-            queryParams.put("amount", w13.getAmount());
 
-            String queryString = "MATCH (a1:Account {accountId: $accountId1}) " +
-                    "MATCH (a2:Account {accountId: $accountId2}) " +
-                    "CREATE (a1)-[:withdraw {createTime: localDateTime($time), amount: $amount}]->(a2)";
-/*
-            PREFIX ex: <http://example.org/>
-            INSERT DATA{
-                    << ex:accountId1 ex:withdrawX ex:accountId2 >>
-                     ex:amount "?"^^<http://www.w3.org/2001/XMLSchema#float> ;
-                     ex:createTime "?"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-            }
-             */
+            String queryString = "PREFIX ex: <http://example.org/> " +
+                    "            INSERT DATA{ " +
+                    "                    << ex:" + w13.getAccountId1() + " ex:withdraw ex:" + w13.getAccountId2() + " >> " +
+                    "                     ex:amount \"" + w13.getAmount() + "\"^^<http://www.w3.org/2001/XMLSchema#float> ; " +
+                    "                     ex:createTime \""+ DATE_FORMAT.format(w13.getTime()) +"\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . " +
+                    "            }";
 
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            client.execute(queryString, queryParams);
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            client.execute(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w13);
         }
     }
 
-    public static class Write14Handler implements OperationHandler<Write14, CypherDbConnectionState> {
+    public static class Write14Handler implements OperationHandler<Write14, JenaDbConnectionState> {
         @Override
-        public void executeOperation(Write14 w14, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(Write14 w14, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w14.toString());
 
             //Add Repay Between Account And Loan
-            Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("accountId", w14.getAccountId());
-            queryParams.put("loanId", w14.getLoanId());
-            queryParams.put("time", DATE_FORMAT.format(w14.getTime()));
-            queryParams.put("amount", w14.getAmount());
 
-            String queryString = "MATCH (a:Account {accountId: $accountId}) " +
-                    "MATCH (l:Loan {loanId: $loanId}) " +
-                    "CREATE (a)-[:repay {createTime: localDateTime($time), amount: $amount}]->(l)";
+            String queryString = "PREFIX ex: <http://example.org/> " +
+                    "            INSERT DATA{ " +
+                    "                    << ex:" + w14.getAccountId() + " ex:repayX ex:" + w14.getLoanId() + " >> " +
+                    "                     ex:amount \"" + w14.getAmount() + "\"^^<http://www.w3.org/2001/XMLSchema#float> ; " +
+                    "                     ex:createTime \""+ DATE_FORMAT.format(w14.getTime()) +"\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . " +
+                    "            }";
 
-            /*
-            PREFIX ex: <http://example.org/>
-            INSERT DATA{
-                    << ex:accountId ex:repayX ex:loanId >>
-                     ex:amount "?"^^<http://www.w3.org/2001/XMLSchema#float> ;
-                     ex:createTime "?"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-            }
-             */
-
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            client.execute(queryString, queryParams);
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            client.execute(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w14);
         }
     }
 
-    public static class Write15Handler implements OperationHandler<Write15, CypherDbConnectionState> {
+    public static class Write15Handler implements OperationHandler<Write15, JenaDbConnectionState> {
         @Override
-        public void executeOperation(Write15 w15, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(Write15 w15, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w15.toString());
 
             //Add Deposit Between Loan And Account
-            Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("accountId", w15.getAccountId());
-            queryParams.put("loanId", w15.getLoanId());
-            queryParams.put("time", DATE_FORMAT.format(w15.getTime()));
-            queryParams.put("amount", w15.getAmount());
 
-            String queryString = "MATCH (a:Account {accountId: $accountId}) " +
-                    "MATCH (l:Loan {loanId: $loanId}) " +
-                    "CREATE (l)-[:deposit {createTime: localDateTime($time), amount: $amount}]->(a)";
+            String queryString = "PREFIX ex: <http://example.org/> " +
+                    "            INSERT DATA{ " +
+                    "                    << ex:" + w15.getLoanId() + " ex:depositX ex:" + w15.getAccountId() + " >> " +
+                    "                     ex:amount \"" + w15.getAmount() + "\"^^<http://www.w3.org/2001/XMLSchema#float> ; " +
+                    "                     ex:createTime \""+ DATE_FORMAT.format(w15.getTime()) +"\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . " +
+                    "            }";
 
-            /*
-            PREFIX ex: <http://example.org/>
-            INSERT DATA{
-                    << ex:loanId ex:transferAccountX ex:accountId >>
-                     ex:amount "?"^^<http://www.w3.org/2001/XMLSchema#float> ;
-                     ex:createTime "?"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-            }
-             */
 
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            client.execute(queryString, queryParams);
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            client.execute(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w15);
         }
     }
 
-    public static class Write16Handler implements OperationHandler<Write16, CypherDbConnectionState> {
+    public static class Write16Handler implements OperationHandler<Write16, JenaDbConnectionState> {
         @Override
-        public void executeOperation(Write16 w16, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(Write16 w16, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w16.toString());
 
@@ -1254,27 +1102,21 @@ public class DummyDb extends Db {
             queryParams.put("mediumId", w16.getMediumId());
             queryParams.put("time", DATE_FORMAT.format(w16.getTime()));
 
-            String queryString = "MATCH (a:Account {accountId: $accountId}) " +
-                    "MATCH (m:Medium {mediumId: $mediumId}) " +
-                    "CREATE (m)-[:signIn {createTime: localDateTime($time)}]->(a)";
+            String queryString = "PREFIX ex: <http://example.org/> " +
+                    "            INSERT DATA{ " +
+                    "                    << ex:" + w16.getMediumId() + " ex:signInX ex:" + w16.getAccountId() + " >> " +
+                    "                     ex:createTime \""+ DATE_FORMAT.format(w16.getTime()) +"\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . " +
+                    "            }";
 
-            /*
-            PREFIX ex: <http://example.org/>
-            INSERT DATA{
-                    << ex:mediumId ex:signInX ex:accountId >>
-                     ex:createTime "?"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-            }
-             */
-
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            client.execute(queryString, queryParams);
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            client.execute(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w16);
         }
     }
 
-    public static class Write17Handler implements OperationHandler<Write17, CypherDbConnectionState> {
+    public static class Write17Handler implements OperationHandler<Write17, JenaDbConnectionState> {
         @Override
-        public void executeOperation(Write17 w17, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(Write17 w17, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w17.toString());
 
@@ -1298,15 +1140,15 @@ public class DummyDb extends Db {
             }
              */
 
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            client.execute(queryString, queryParams);
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            client.execute(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w17);
         }
     }
 
-    public static class Write18Handler implements OperationHandler<Write18, CypherDbConnectionState> {
+    public static class Write18Handler implements OperationHandler<Write18, JenaDbConnectionState> {
         @Override
-        public void executeOperation(Write18 w18, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(Write18 w18, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w18.toString());
 
@@ -1317,15 +1159,15 @@ public class DummyDb extends Db {
             String queryString = "MATCH (a:Account {accountId: $accountId}) " +
                     "SET a.isBlocked = true";
 
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            client.execute(queryString, queryParams);
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            client.execute(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w18);
         }
     }
 
-    public static class Write19Handler implements OperationHandler<Write19, CypherDbConnectionState> {
+    public static class Write19Handler implements OperationHandler<Write19, JenaDbConnectionState> {
         @Override
-        public void executeOperation(Write19 w19, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(Write19 w19, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(w19.toString());
 
@@ -1336,33 +1178,33 @@ public class DummyDb extends Db {
             String queryString = "MATCH (p:Person {personId: $personId}) " +
                     "SET p.isBlocked = true";
 
-            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
-            client.execute(queryString, queryParams);
+            JenaDbConnectionState.JenaClient client = jenaDbConnectionState.client();
+            client.execute(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w19);
         }
     }
 
-    public static class ReadWrite1Handler implements OperationHandler<ReadWrite1, CypherDbConnectionState> {
+    public static class ReadWrite1Handler implements OperationHandler<ReadWrite1, JenaDbConnectionState> {
         @Override
-        public void executeOperation(ReadWrite1 rw1, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(ReadWrite1 rw1, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(rw1.toString());
             resultReporter.report(0, LdbcNoResult.INSTANCE, rw1);
         }
     }
 
-    public static class ReadWrite2Handler implements OperationHandler<ReadWrite2, CypherDbConnectionState> {
+    public static class ReadWrite2Handler implements OperationHandler<ReadWrite2, JenaDbConnectionState> {
         @Override
-        public void executeOperation(ReadWrite2 rw2, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(ReadWrite2 rw2, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
 
             resultReporter.report(0, LdbcNoResult.INSTANCE, rw2);
         }
     }
 
-    public static class ReadWrite3Handler implements OperationHandler<ReadWrite3, CypherDbConnectionState> {
+    public static class ReadWrite3Handler implements OperationHandler<ReadWrite3, JenaDbConnectionState> {
         @Override
-        public void executeOperation(ReadWrite3 rw3, CypherDbConnectionState cypherDbConnectionState,
+        public void executeOperation(ReadWrite3 rw3, JenaDbConnectionState jenaDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             DummyDb.logger.info(rw3.toString());
             resultReporter.report(0, LdbcNoResult.INSTANCE, rw3);
