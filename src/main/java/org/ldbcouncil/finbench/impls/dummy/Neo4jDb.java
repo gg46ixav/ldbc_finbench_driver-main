@@ -16,7 +16,7 @@ import org.ldbcouncil.finbench.driver.log.LoggingService;
 import org.ldbcouncil.finbench.driver.workloads.transaction.LdbcNoResult;
 import org.ldbcouncil.finbench.driver.workloads.transaction.queries.*;
 
-public class DummyDb extends Db {
+public class Neo4jDb extends Db {
     static Logger logger = LogManager.getLogger("DummyDb");
 
     private CypherDbConnectionState connectionState = null;
@@ -24,8 +24,6 @@ public class DummyDb extends Db {
 
     @Override
     protected void onInit(Map<String, String> map, LoggingService loggingService) throws DbException {
-
-        //String connectionUrl = "bolt://localhost:7690";
 
         String connectionUrl = "bolt://localhost:7689";
         connectionState = new CypherDbConnectionState(connectionUrl);
@@ -101,7 +99,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(ComplexRead1 cr1, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(cr1);
+            Neo4jDb.logger.info(cr1);
 
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("id", cr1.getId());
@@ -137,7 +135,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(ComplexRead2 cr2, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(cr2.toString());
+            Neo4jDb.logger.info(cr2.toString());
 
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("id", cr2.getId());
@@ -174,7 +172,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(ComplexRead3 cr3, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(cr3.toString());
+            Neo4jDb.logger.info(cr3.toString());
 
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("id1", cr3.getId1());
@@ -205,7 +203,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(ComplexRead4 cr4, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(cr4.toString());
+            Neo4jDb.logger.info(cr4.toString());
 
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("id1", cr4.getId1());
@@ -252,7 +250,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(ComplexRead5 cr5, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(cr5.toString());
+            Neo4jDb.logger.info(cr5.toString());
 
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("id", cr5.getId());
@@ -288,7 +286,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(ComplexRead6 cr6, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(cr6.toString());
+            Neo4jDb.logger.info(cr6.toString());
 
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("id", cr6.getId());
@@ -323,7 +321,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(ComplexRead7 cr7, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(cr7.toString());
+            Neo4jDb.logger.info(cr7.toString());
 
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("id", cr7.getId());
@@ -362,7 +360,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(ComplexRead8 cr8, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(cr8.toString());
+            Neo4jDb.logger.info(cr8.toString());
 
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("id", cr8.getId());
@@ -401,7 +399,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(ComplexRead9 cr9, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(cr9.toString());
+            Neo4jDb.logger.info(cr9.toString());
 
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("id", cr9.getId());
@@ -454,7 +452,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(ComplexRead10 cr10, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(cr10.toString());
+            Neo4jDb.logger.info(cr10.toString());
 
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("id1", cr10.getPid1());
@@ -488,7 +486,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(ComplexRead11 cr11, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(cr11.toString());
+            Neo4jDb.logger.info(cr11.toString());
 
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("id", cr11.getId());
@@ -519,7 +517,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(ComplexRead12 cr12, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(cr12.toString());
+            Neo4jDb.logger.info(cr12.toString());
 
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("id", cr12.getId());
@@ -552,7 +550,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(SimpleRead1 sr1, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(sr1.toString());
+            Neo4jDb.logger.info(sr1.toString());
 
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("id", sr1.getId());
@@ -593,7 +591,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(SimpleRead2 sr2, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(sr2.toString());
+            Neo4jDb.logger.info(sr2.toString());
 
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("id", sr2.getId());
@@ -628,7 +626,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(SimpleRead3 sr3, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(sr3.toString());
+            Neo4jDb.logger.info(sr3.toString());
 
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("id", sr3.getId());
@@ -665,7 +663,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(SimpleRead4 sr4, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(sr4.toString());
+            Neo4jDb.logger.info(sr4.toString());
 
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("id", sr4.getId());
@@ -696,7 +694,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(SimpleRead5 sr5, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(sr5.toString());
+            Neo4jDb.logger.info(sr5.toString());
 
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("id", sr5.getId());
@@ -727,7 +725,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(SimpleRead6 sr6, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(sr6.toString());
+            Neo4jDb.logger.info(sr6.toString());
 
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("id", sr6.getId());
@@ -759,7 +757,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(Write1 w1, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(w1.toString());
+            Neo4jDb.logger.info(w1.toString());
 
             //Add a person Node
             Map<String, Object> queryParams = new HashMap<>();
@@ -791,7 +789,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(Write2 w2, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(w2.toString());
+            Neo4jDb.logger.info(w2.toString());
 
             //Add a Company Node
             Map<String, Object> queryParams = new HashMap<>();
@@ -824,7 +822,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(Write3 w3, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(w3.toString());
+            Neo4jDb.logger.info(w3.toString());
 
             //Add a Medium Node
             Map<String, Object> queryParams = new HashMap<>();
@@ -853,7 +851,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(Write4 w4, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(w4.toString());
+            Neo4jDb.logger.info(w4.toString());
 
             //Add an Account Node owned by Person
             Map<String, Object> queryParams = new HashMap<>();
@@ -888,7 +886,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(Write5 w5, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(w5.toString());
+            Neo4jDb.logger.info(w5.toString());
 
             //Add an Account Node owned by Company
             Map<String, Object> queryParams = new HashMap<>();
@@ -924,7 +922,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(Write6 w6, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(w6.toString());
+            Neo4jDb.logger.info(w6.toString());
 
             //Add Loan applied by Person
             Map<String, Object> queryParams = new HashMap<>();
@@ -960,7 +958,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(Write7 w7, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(w7.toString());
+            Neo4jDb.logger.info(w7.toString());
 
             //Add Loan applied by Company
             Map<String, Object> queryParams = new HashMap<>();
@@ -996,7 +994,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(Write8 w8, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(w8.toString());
+            Neo4jDb.logger.info(w8.toString());
 
             //Add Invest Between Person And Company
             Map<String, Object> queryParams = new HashMap<>();
@@ -1027,7 +1025,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(Write9 w9, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(w9.toString());
+            Neo4jDb.logger.info(w9.toString());
 
             //Add Invest Between Company And Company
             Map<String, Object> queryParams = new HashMap<>();
@@ -1060,7 +1058,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(Write10 w10, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(w10.toString());
+            Neo4jDb.logger.info(w10.toString());
 
             //Add Guarantee Between Persons
             Map<String, Object> queryParams = new HashMap<>();
@@ -1089,7 +1087,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(Write11 w11, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(w11.toString());
+            Neo4jDb.logger.info(w11.toString());
 
             //Add Guarantee Between Companies
             Map<String, Object> queryParams = new HashMap<>();
@@ -1119,7 +1117,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(Write12 w12, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(w12.toString());
+            Neo4jDb.logger.info(w12.toString());
 
             //Add Transfer Between Accounts
             Map<String, Object> queryParams = new HashMap<>();
@@ -1151,7 +1149,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(Write13 w13, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(w13.toString());
+            Neo4jDb.logger.info(w13.toString());
 
             //Add Withdraw Between Accounts
             Map<String, Object> queryParams = new HashMap<>();
@@ -1182,7 +1180,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(Write14 w14, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(w14.toString());
+            Neo4jDb.logger.info(w14.toString());
 
             //Add Repay Between Account And Loan
             Map<String, Object> queryParams = new HashMap<>();
@@ -1214,7 +1212,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(Write15 w15, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(w15.toString());
+            Neo4jDb.logger.info(w15.toString());
 
             //Add Deposit Between Loan And Account
             Map<String, Object> queryParams = new HashMap<>();
@@ -1246,7 +1244,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(Write16 w16, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(w16.toString());
+            Neo4jDb.logger.info(w16.toString());
 
             //Account signed in with Medium
             Map<String, Object> queryParams = new HashMap<>();
@@ -1276,7 +1274,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(Write17 w17, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(w17.toString());
+            Neo4jDb.logger.info(w17.toString());
 
             //Remove an Account
             Map<String, Object> queryParams = new HashMap<>();
@@ -1308,7 +1306,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(Write18 w18, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(w18.toString());
+            Neo4jDb.logger.info(w18.toString());
 
             //Block an Account of high risk
             Map<String, Object> queryParams = new HashMap<>();
@@ -1327,7 +1325,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(Write19 w19, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(w19.toString());
+            Neo4jDb.logger.info(w19.toString());
 
             //Block a Person of high risk
             Map<String, Object> queryParams = new HashMap<>();
@@ -1346,7 +1344,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(ReadWrite1 rw1, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(rw1.toString());
+            Neo4jDb.logger.info(rw1.toString());
             resultReporter.report(0, LdbcNoResult.INSTANCE, rw1);
         }
     }
@@ -1364,7 +1362,7 @@ public class DummyDb extends Db {
         @Override
         public void executeOperation(ReadWrite3 rw3, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            DummyDb.logger.info(rw3.toString());
+            Neo4jDb.logger.info(rw3.toString());
             resultReporter.report(0, LdbcNoResult.INSTANCE, rw3);
         }
     }

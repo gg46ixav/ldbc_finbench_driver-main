@@ -31,7 +31,7 @@ path=cypher/
 For a new implementation of the SUT, update this configuration parameter accordingly.
 
 ```shell
-db=org.ldbcouncil.finbench.impls.dummy.DummyDb
+db=org.ldbcouncil.finbench.impls.dummy.Neo4jDb
 ```
 
 ### 1.3 Params
