@@ -11,21 +11,23 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.ldbcouncil.finbench.driver.DbConnectionState;
 import org.neo4j.driver.*;
+import org.neo4j.driver.exceptions.ClientException;
 import org.neo4j.driver.exceptions.NoSuchRecordException;
 
 public class CypherDbConnectionState extends DbConnectionState {
 
     static class CypherClient {
         private final Driver driver;
-        CypherClient(String connectionUrl) {
-            driver = GraphDatabase.driver(connectionUrl);
+        CypherClient(String connectionUrl, String username, String password) {
+            driver = GraphDatabase.driver(connectionUrl, AuthTokens.basic(username, password));
+
         }
         String execute(String queryString, Map<String, Object> queryParams) {
             try(Session session = driver.session()){
                 Result result = session.run(queryString, queryParams);
 
                 return resultToString(result);
-            }catch(NoSuchRecordException e){
+            }catch(ClientException e){
                 return "";
             }
         }
@@ -76,7 +78,7 @@ public class CypherDbConnectionState extends DbConnectionState {
     private final CypherClient cypherClient;
 
     public CypherDbConnectionState(Map<String, String> properties) {
-        cypherClient = new CypherClient(properties.get("host")+":"+properties.get("port")+"/"+properties.get("path"));
+        cypherClient = new CypherClient(properties.get("host")+":"+properties.get("port")+"/"+properties.get("path"), properties.get("user"), properties.get("pass"));
     }
 
     CypherClient client() {

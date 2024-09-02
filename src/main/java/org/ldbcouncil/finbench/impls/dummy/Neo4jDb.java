@@ -111,7 +111,7 @@ public class Neo4jDb extends Db {
             String queryString = "MATCH p=(account:Account {accountId: $id})-[edge1:transfer*1..3]->(other:Account), "
                     + "(other)<-[edge2:signIn]-(medium:Medium {isBlocked: true}) "
                     + "WITH p, [e IN relationships(p) | e.createTime] AS ts, other, medium "
-                    + "WHERE reduce(curr = head(ts), x IN tail(ts) | CASE WHEN curr < x THEN x ELSE 9223372036854775807 end) <> 9223372036854775807 "
+                    + "WHERE reduce(curr = head(ts), x IN tail(ts) | CASE WHEN curr < x THEN x ELSE localDateTime(\"9999-12-30T23:59:59\") END) <> localDateTime(\"9999-12-30T23:59:59\") \n "
                     + "AND all(e IN edge1 WHERE dateTime($start_time) < e.createTime < dateTime($end_time)) "
                     + "AND dateTime($start_time) < edge2.createTime < dateTime($end_time) "
                     + "RETURN " +
@@ -148,18 +148,21 @@ public class Neo4jDb extends Db {
             queryParams.put("start_time", DATE_FORMAT.format(cr2.getStartTime()));
             queryParams.put("end_time", DATE_FORMAT.format(cr2.getEndTime()));
 
+
             String queryString = "MATCH " +
                     "(person:Person {personId: $id})-[edge1:own]->(accounts:Account), " +
                     "p=(accounts)<-[edge2:transfer*1..3]-(other:Account), " +
                     "(other)<-[edge3:deposit]-(loan:Loan) " +
-                    "WITH p, [e IN relationships(p) | e.createTime] AS ts, other, loan " +
+                    "WITH p, [e IN relationships(p) | e.createTime] AS ts, other, loan, " +
+                    "other IS NOT NULL AS otherExists  " +
                     "WHERE " +
-                    "reduce(curr = head(ts), x IN tail(ts) | CASE WHEN curr < x THEN x ELSE 9223372036854775807 end) <> 9223372036854775807 " +
+                    "otherExists " +
+                    " AND reduce(curr = head(ts), x IN tail(ts) | CASE WHEN curr < x THEN x ELSE localDateTime(\"9999-12-30T23:59:59\") END) <> localDateTime(\"9999-12-30T23:59:59\") \n " +
                     "AND all(e IN edge2 WHERE dateTime($start_time) < e.createTime < dateTime($end_time)) " +
                     "AND dateTime($start_time) < edge3.createTime < dateTime($end_time) " +
                     "RETURN other.accountId AS otherId, " +
-                    "    (round(1000 * sum(loan.loanAmount))/1000) AS sumLoanAmount, \n" +
-                    "    (round(1000 * sum(loan.balance))/1000) AS sumLoanBalance \n" +
+                    "    (round(1000 * (REDUCE(total = 0, loanA IN COLLECT(DISTINCT loan) | total + loanA.loanAmount)))/1000) AS sumLoanAmount, " +
+                    "    (round(1000 * (REDUCE(total = 0, loanA IN COLLECT(DISTINCT loan) | total + loanA.balance)))/1000) AS sumLoanBalance " +
                     "ORDER BY sumLoanAmount DESC, otherId ASC ";
 
 
@@ -226,27 +229,48 @@ public class Neo4jDb extends Db {
                     "WHERE dateTime($start_time) < edge1.createTime < dateTime($end_time) " +
                     "AND dateTime($start_time) < edge2.createTime < dateTime($end_time) " +
                     "AND dateTime($start_time) < edge3.createTime < dateTime($end_time) " +
-                    "WITH " +
-                    "other.accountId AS otherId, " +
-                    "count(DISTINCT edge2) AS numEdge2, (round(1000 * sum(DISTINCT edge2.amount))/1000) AS sumEdge2Amount, " +       //added distinct, so it doesn't add same edge more than once
-                    "(round(1000 * max(edge2.amount))/1000) AS maxEdge2Amount, " +
-                    "count(DISTINCT edge3) AS numEdge3, (round(1000 * sum(DISTINCT edge3.amount))/1000) AS sumEdge3Amount, " +
-                    "(round(1000 * sum(edge3.amount))/1000) AS maxEdge3Amount " +
-                    "ORDER BY sumEdge2Amount+sumEdge3Amount DESC " +
-                    "WITH collect({otherId: otherId, numEdge2: numEdge2, sumEdge2Amount: sumEdge2Amount, " +
-                    "maxEdge2Amount: maxEdge2Amount, numEdge3: numEdge3, sumEdge3Amount: sumEdge3Amount, " +
-                    "maxEdge3Amount: maxEdge3Amount}) AS results " +
-                    "WITH coalesce(head(results), {otherId: -1, numEdge2: 0, sumEdge2Amount: 0, maxEdge2Amount: 0, " +
-                    "numEdge3: 0, sumEdge3Amount: 0, maxEdge3Amount: 0}) AS top " +
-                    "RETURN " +
-                    "top.otherId AS otherId, " +
-                    "top.numEdge2 AS numEdge2,  " +
-                    "top.sumEdge2Amount AS sumEdge2Amount, " +
-                    "top.maxEdge2Amount AS maxEdge2Amount, " +
-                    "top.numEdge3 AS numEdge3, " +
-                    "top.sumEdge3Amount AS sumEdge3Amount, " +
-                    "top.maxEdge3Amount AS maxEdge3Amount " +
-                    "ORDER BY sumEdge2Amount DESC, sumEdge3Amount DESC, otherId ASC ";
+                    "WITH \n" +
+                    "    other.accountId AS otherId,\n" +
+                    "    count(DISTINCT edge2) AS numEdge2, \n" +
+                    "    (round(1000 * (REDUCE(total = 0, edge IN COLLECT(DISTINCT edge2) | total + edge.amount))) / 1000) AS sumEdge2Amount,\n" +
+                    "    round(1000 * max(edge2.amount)) / 1000 AS maxEdge2Amount,\n" +
+                    "    count(DISTINCT edge3) AS numEdge3, \n" +
+                    "    (round(1000 * (REDUCE(total = 0, edge IN COLLECT(DISTINCT edge3) | total + edge.amount))) / 1000) AS sumEdge3Amount,\n" +
+                    "    round(1000 * max(edge3.amount)) / 1000 AS maxEdge3Amount\n" +
+                    "ORDER BY \n" +
+                    "    sumEdge2Amount + sumEdge3Amount DESC\n" +
+                    "WITH \n" +
+                    "    collect({\n" +
+                    "        otherId: otherId, \n" +
+                    "        numEdge2: numEdge2, \n" +
+                    "        sumEdge2Amount: sumEdge2Amount, \n" +
+                    "        maxEdge2Amount: maxEdge2Amount, \n" +
+                    "        numEdge3: numEdge3, \n" +
+                    "        sumEdge3Amount: sumEdge3Amount, \n" +
+                    "        maxEdge3Amount: maxEdge3Amount\n" +
+                    "    }) AS results\n" +
+                    "WITH \n" +
+                    "    coalesce(head(results), {\n" +
+                    "        otherId: -1, \n" +
+                    "        numEdge2: 0, \n" +
+                    "        sumEdge2Amount: 0, \n" +
+                    "        maxEdge2Amount: 0, \n" +
+                    "        numEdge3: 0, \n" +
+                    "        sumEdge3Amount: 0, \n" +
+                    "        maxEdge3Amount: 0\n" +
+                    "    }) AS top\n" +
+                    "RETURN \n" +
+                    "    top.otherId AS otherId, \n" +
+                    "    top.numEdge2 AS numEdge2,  \n" +
+                    "    top.sumEdge2Amount AS sumEdge2Amount, \n" +
+                    "    top.maxEdge2Amount AS maxEdge2Amount, \n" +
+                    "    top.numEdge3 AS numEdge3, \n" +
+                    "    top.sumEdge3Amount AS sumEdge3Amount, \n" +
+                    "    top.maxEdge3Amount AS maxEdge3Amount\n" +
+                    "ORDER BY \n" +
+                    "    sumEdge2Amount DESC, \n" +
+                    "    sumEdge3Amount DESC, \n" +
+                    "    otherId ASC;\n";
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             String result = client.execute(queryString, queryParams);
@@ -280,7 +304,7 @@ public class Neo4jDb extends Db {
                     "nodes(p) AS nodeList " +
                     "WHERE "+
                     "reduce(curr = head(ts), x IN tail(ts) | CASE WHEN curr < x THEN x " +
-                    "ELSE 9223372036854775807 end) <> 9223372036854775807 " +
+                    "ELSE localDateTime(\"9999-12-30T23:59:59\") END) <> localDateTime(\"9999-12-30T23:59:59\") \n " +
                     "AND all(e IN edge2 WHERE dateTime($start_time) < e.createTime < dateTime($end_time)) " +
                     "RETURN [node in nodeList | node.accountId] AS path " +
                     "ORDER BY length(p) DESC";
@@ -319,7 +343,7 @@ public class Neo4jDb extends Db {
                     "  AND edge2.amount > $threshold2 \n" +
                     "WITH mid, count(edge1) AS transferCount, " +
                     "(round(1000 * sum(edge1.amount))/1000) AS sumEdge1Amount, " +           //ADDED ROUND
-                    "(round(1000 * sum(edge2.amount))/1000) AS sumEdge2Amount " +
+                    "(round(1000 * (REDUCE(total = 0, account IN COLLECT(DISTINCT edge2) | total + account.amount)))/1000) AS sumEdge2Amount " +
                     "WHERE transferCount > 3 " +
                     "RETURN " +
                     "  mid.accountId AS midId, " +
@@ -358,7 +382,9 @@ public class Neo4jDb extends Db {
                     "                    AND edge1.amount > $threshold \n" +
                     "                    AND dateTime($start_time) < edge2.createTime < dateTime($end_time) \n" +
                     "                    AND edge2.amount > $threshold \n" +
-                    "WITH src, dst, sum(edge1.amount) AS sumEdge1Amount, sum(edge2.amount) AS sumEdge2Amount,\n" +
+                    "WITH src, dst, " +
+                    "REDUCE(total = 0, account IN COLLECT(DISTINCT edge1) | total + account.amount) AS sumEdge1Amount, " +
+                    "REDUCE(total = 0, account IN COLLECT(DISTINCT edge2) | total + account.amount) AS sumEdge2Amount,\n" +
                     "       COUNT(src) AS numSrc,\n" +
                     "       COUNT(dst) AS numDst\n" +
                     "RETURN numSrc, numDst," +
@@ -443,20 +469,24 @@ public class Neo4jDb extends Db {
                     "AND $lowerbound < edge1.amount/edge2.amount < $upperbound " +
                     "AND edge3.amount > $threshold AND dateTime($start_time) < edge3.createTime < dateTime($end_time) " +
                     "AND edge4.amount > $threshold AND dateTime($start_time) < edge4.createTime < dateTime($end_time) " +
+                    "WITH REDUCE(total = 0, edge IN COLLECT(DISTINCT edge1) | total + edge.amount) AS sumEdge1, " +
+                    "REDUCE(total = 0, edge IN COLLECT(DISTINCT edge2) | total + edge.amount) AS sumEdge2, " +
+                    "REDUCE(total = 0, edge IN COLLECT(DISTINCT edge3) | total + edge.amount) AS sumEdge3, " +
+                    "REDUCE(total = 0, edge IN COLLECT(DISTINCT edge4) | total + edge.amount) AS sumEdge4 " +
                     "RETURN " +
                     "CASE " +
-                    "WHEN sum(edge2.amount) > 0 THEN " +                            //CHECK IF DIV 0
-                    "round(1000 * sum(edge1.amount)/sum(edge2.amount)) / 1000 " +
+                    "WHEN sumEdge2 > 0 THEN " +                            //CHECK IF DIV 0
+                    "round(1000 * sumEdge1/sumEdge2) / 1000 " +
                     "ELSE -1 " +
                     "END AS ratioRepay, " +
                     "CASE " +
-                    "WHEN sum(edge2.amount) > 0 THEN " +
-                    "round(1000 * sum(edge1.amount)/sum(edge4.amount)) / 1000 " +
+                    "WHEN sumEdge2 > 0 THEN " +
+                    "round(1000 * sumEdge1/sumEdge4) / 1000 " +
                     "ELSE -1 " +
                     "END AS ratioDeposit, " +
                     "CASE " +
-                    "WHEN sum(edge4.amount) > 0 THEN " +
-                    "round(1000 * sum(edge3.amount)/sum(edge4.amount)) / 1000 " +
+                    "WHEN sumEdge4 > 0 THEN " +
+                    "round(1000 * sumEdge3/sumEdge4) / 1000 " +
                     "ELSE -1 " +
                     "END AS ratioTransfer";
 
@@ -524,7 +554,7 @@ public class Neo4jDb extends Db {
                     "UNWIND nodes(path)[1..] AS person " +
                     "MATCH (person)-[:apply]->(loan:Loan) " +
                     "RETURN " +
-                    "(round(1000 * sum(loan.loanAmount))/1000) AS sumLoanAmount, " +        //ADDED ROUND
+                    "(round(1000 * REDUCE(total = 0, loanA IN COLLECT(DISTINCT loan) | total + loanA.loanAmount))/1000) AS sumLoanAmount, " +        //ADDED ROUND
                     "count(loan) AS numLoans";
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
@@ -559,7 +589,7 @@ public class Neo4jDb extends Db {
                     "WHERE dateTime($start_time) < edge2.createTime < dateTime($end_time) " +
                     "RETURN " +
                     "compAcc.accountId AS compAccountId, " +
-                    "(round(1000 * sum(edge2.amount))/1000) AS sumEdge2Amount " +    //ADDED ROUND
+                    "(round(1000 * REDUCE(total = 0, edge IN COLLECT(DISTINCT edge2) | total + edge.amount))/1000) AS sumEdge2Amount " +    //ADDED ROUND
                     "ORDER BY sumEdge2Amount DESC, compAccountId ASC";
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
@@ -765,7 +795,7 @@ public class Neo4jDb extends Db {
                     "WHERE src.accountId <> dst.accountId " +
                     "  AND dateTime($start_time) < e1.createTime < dateTime($end_time) " +
                     "  AND dateTime($start_time) < e2.createTime < dateTime($end_time) " +
-                    "RETURN COLLECT(dst.accountId) AS dstId " +
+                    "RETURN DISTINCT dst.accountId AS dstId " +
                     "ORDER BY dstId ASC";
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
@@ -776,7 +806,7 @@ public class Neo4jDb extends Db {
                 simpleRead6Results = sr6.deserializeResult(result);
                 resultReporter.report(simpleRead6Results.size(), simpleRead6Results, sr6);
             } catch (IOException e) {
-                //DummyDb.logger.warn(e.getMessage() + "\n" + cr1);
+                Neo4jDb.logger.warn(e.getMessage() + "\n" + sr6);
                 resultReporter.report(0, new ArrayList<>(), sr6);
             }
         }
@@ -805,15 +835,6 @@ public class Neo4jDb extends Db {
             String queryString = "CREATE (:Person {personId: $personId, personName: $personName, " +
                     "                    isBlocked: $isBlocked, createTime: dateTime($createTime)})";
 
-            /*
-            PREFIX ex: <http://example.org/>
-            INSERT DATA{
-                    ex:? a ex:Person ;
-                     ex:personName "?" ;
-                     ex:isBlocked ? ;
-                     ex:createTime "?"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-            }
-             */
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             client.execute(queryString, queryParams);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w1);
