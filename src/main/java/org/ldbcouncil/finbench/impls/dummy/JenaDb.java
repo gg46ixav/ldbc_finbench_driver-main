@@ -25,8 +25,7 @@ public class JenaDb extends Db {
     @Override
     protected void onInit(Map<String, String> map, LoggingService loggingService) throws DbException {
 
-        String connectionUrl = "http://localhost:3030/Finbench/update";
-        connectionState = new JenaDbConnectionState(connectionUrl);
+        connectionState = new JenaDbConnectionState(map);
         logger.info("JenaDb initialized");
 
         // complex reads

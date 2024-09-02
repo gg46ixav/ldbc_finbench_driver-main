@@ -32,7 +32,7 @@ public class JenaDbConnectionState extends DbConnectionState {
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-            String encoded = Base64.getEncoder().encodeToString(("admin:gbcI5xkMGm7CW48").getBytes(StandardCharsets.UTF_8));
+            String encoded = Base64.getEncoder().encodeToString(("admin:Dnx1sayu3vu957x").getBytes(StandardCharsets.UTF_8));
             connection.setRequestProperty("Authorization", "Basic " + encoded);
             connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
             connection.setRequestProperty("charset", "utf-8");
@@ -66,8 +66,8 @@ public class JenaDbConnectionState extends DbConnectionState {
 
     private final JenaClient jenaClient;
 
-    public JenaDbConnectionState(String connectionUrl) {
-        jenaClient = new JenaClient(connectionUrl);
+    public JenaDbConnectionState(Map<String, String> properties) {
+        jenaClient = new JenaClient(properties.get("host")+":"+properties.get("port")+"/"+properties.get("path"));
     }
 
     JenaClient client() {

@@ -1,11 +1,15 @@
 package org.ldbcouncil.finbench.impls.dummy;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ldbcouncil.finbench.driver.*;
 import org.ldbcouncil.finbench.driver.log.LoggingService;
 import org.ldbcouncil.finbench.driver.workloads.transaction.LdbcNoResult;
 import org.ldbcouncil.finbench.driver.workloads.transaction.queries.*;
+import org.neo4j.driver.Result;
+import org.neo4j.driver.Transaction;
 
 import java.io.IOException;
 import java.text.SimpleDateFormat;
@@ -20,9 +24,8 @@ public class MemgraphDb extends Db {
     @Override
     protected void onInit(Map<String, String> map, LoggingService loggingService) throws DbException {
 
-        String connectionUrl = "bolt://localhost:7687";
-        connectionState = new CypherDbConnectionState(connectionUrl);
-        logger.info("DummyDb initialized");
+        connectionState = new CypherDbConnectionState(map);
+        logger.info("MemgraphDb initialized");
 
         // complex reads
         registerOperationHandler(ComplexRead1.class, ComplexRead1Handler.class);
@@ -71,18 +74,18 @@ public class MemgraphDb extends Db {
         registerOperationHandler(Write18.class, Write18Handler.class);
         registerOperationHandler(Write19.class, Write19Handler.class);
 
-        /*
+
         // read-writes
         registerOperationHandler(ReadWrite1.class, ReadWrite1Handler.class);
         registerOperationHandler(ReadWrite2.class, ReadWrite2Handler.class);
         registerOperationHandler(ReadWrite3.class, ReadWrite3Handler.class);
 
-         */
+
     }
 
     @Override
     protected void onClose() throws IOException {
-        logger.info("DummyDb closed");
+        logger.info("MemgraphDb closed");
     }
 
     @Override
@@ -97,18 +100,23 @@ public class MemgraphDb extends Db {
             MemgraphDb.logger.info(cr1);
 
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("id", cr1.getId());
+            queryParams.put("id", cr1.getId() + "");
             queryParams.put("start_time", DATE_FORMAT.format(cr1.getStartTime()));
             queryParams.put("end_time", DATE_FORMAT.format(cr1.getEndTime()));
 
             String queryString = "MATCH p=(account:Account {accountId: $id})-[edge1:transfer*1..3]->(other:Account), "
                     + "(other)<-[edge2:signIn]-(medium:Medium {isBlocked: true}) "
-                    + "WITH p, [e IN relationships(p) | e.createTime] AS ts, other, medium "
-                    + "WHERE reduce(curr = head(ts), x IN tail(ts) | CASE WHEN curr < x THEN x ELSE 9223372036854775807 end) <> 9223372036854775807 "
+                    + "WITH p, extract(e IN relationships(p) | e.createTime) AS ts, other, medium "
+                    + "WHERE reduce(curr = head(ts), x IN tail(ts) | CASE WHEN curr < x THEN x " +
+                    "ELSE localDateTime(\"9999-12-30T23:59:59\") end) <> localDateTime(\"9999-12-30T23:59:59\") "
                     + "AND all(e IN edge1 WHERE localDateTime($start_time) < e.createTime < localDateTime($end_time)) "
                     + "AND localDateTime($start_time) < edge2.createTime < localDateTime($end_time) "
-                    + "RETURN other.accountId AS otherId, length(p) AS accountDistance, medium.mediumId AS mediumId, medium.mediumType AS mediumType "
-                    + "ORDER BY accountDistance ASC";
+                    + "RETURN " +
+                    "other.accountId AS otherId, " +
+                    "size(p) AS accountDistance, " +
+                    "medium.mediumId AS mediumId, " +
+                    "medium.mediumType AS mediumType " +
+                    "ORDER BY accountDistance ASC, otherId ASC, mediumId ASC ";
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             String result = client.execute(queryString, queryParams);
@@ -118,7 +126,7 @@ public class MemgraphDb extends Db {
                 complexRead1Results = cr1.deserializeResult(result);
                 resultReporter.report(complexRead1Results.size(), complexRead1Results, cr1);
             } catch (IOException e) {
-                //DummyDb.logger.warn(e.getMessage() + "\n" + cr1);
+                MemgraphDb.logger.warn(e.getMessage() + "\n" + cr1);
                 resultReporter.report(0, new ArrayList<>(), cr1);
             }
 
@@ -133,21 +141,33 @@ public class MemgraphDb extends Db {
             MemgraphDb.logger.info(cr2.toString());
 
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("id", cr2.getId());
+            queryParams.put("id", cr2.getId() + "");
             queryParams.put("start_time", DATE_FORMAT.format(cr2.getStartTime()));
             queryParams.put("end_time", DATE_FORMAT.format(cr2.getEndTime()));
 
-            String queryString = "MATCH " +
-                    "(person:Person {personId: $id})-[edge1:own]->(accounts:Account), " +
-                    "p=(accounts)<-[edge2:transfer*1..3]-(other:Account), " +
-                    "(other)<-[edge3:deposit]-(loan:Loan) " +
-                    "WITH p, [e IN relationships(p) | e.createTime] AS ts, other, loan " +
-                    "WHERE " +
-                    "reduce(curr = head(ts), x IN tail(ts) | CASE WHEN curr < x THEN x ELSE 9223372036854775807 end) <> 9223372036854775807 " +
-                    "AND all(e IN edge2 WHERE localDateTime($start_time) < e.createTime < localDateTime($end_time)) " +
-                    "AND localDateTime($start_time) < edge3.createTime < localDateTime($end_time) " +
-                    "RETURN other.id AS otherId, sum(loan.amount) AS sumLoanAmount, sum(loan.balance) AS sumLoanBalance " +
-                    "ORDER BY sumLoanAmount DESC";
+            String queryString = "MATCH \n" +
+                    "    (person:Person {personId: $id})-[edge1:own]->(accounts:Account), \n" +
+                    "    p=(accounts)<-[edge2:transfer*1..3]-(other:Account), \n" +
+                    "    (other)<-[edge3:deposit]-(loan:Loan) \n" +
+                    "WITH p, \n" +
+                    "     extract(e IN relationships(p) | e.createTime) AS ts, \n" +
+                    "     other, \n" +
+                    "     loan, \n" +
+                    "     other IS NOT NULL AS otherExists \n" +
+                    "WHERE \n" +
+                    "    otherExists \n" +
+                    "    AND reduce(curr = head(ts), x IN tail(ts) | CASE WHEN curr < x THEN x " +
+                    "ELSE localDateTime(\"9999-12-30T23:59:59\") END) <> localDateTime(\"9999-12-30T23:59:59\") \n" +
+                    "    AND all(e IN edge2 WHERE localDateTime($start_time) < e.createTime < localDateTime($end_time)) \n" +
+                    "    AND localDateTime($start_time) < edge3.createTime < localDateTime($end_time) \n" +
+                    "RETURN \n" +
+                    "    other.accountId AS otherId, \n" +
+                    "    (round(1000 * sum(loan.loanAmount))/1000) AS sumLoanAmount, \n" +
+                    "    (round(1000 * sum(loan.balance))/1000) AS sumLoanBalance \n" +
+                    "ORDER BY \n" +
+                    "    sumLoanAmount DESC, " +
+                    "    size(otherId) ASC, " +     //WORK AROUND SORT BECAUSE ID IS A STRING
+                    "    otherId ASC";
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             String result = client.execute(queryString, queryParams);
@@ -157,7 +177,7 @@ public class MemgraphDb extends Db {
                 complexRead2Results = cr2.deserializeResult(result);
                 resultReporter.report(complexRead2Results.size(), complexRead2Results, cr2);
             } catch (IOException e) {
-                //DummyDb.logger.warn(e.getMessage() + "\n" + cr1);
+                MemgraphDb.logger.warn(e.getMessage() + "\n" + cr2);
                 resultReporter.report(0, new ArrayList<>(), cr2);
             }
         }
@@ -170,15 +190,18 @@ public class MemgraphDb extends Db {
             MemgraphDb.logger.info(cr3.toString());
 
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("id1", cr3.getId1());
-            queryParams.put("id2", cr3.getId2());
+            queryParams.put("id1", cr3.getId1() + "");
+            queryParams.put("id2", cr3.getId2() + "");
             queryParams.put("start_time", DATE_FORMAT.format(cr3.getStartTime()));
             queryParams.put("end_time", DATE_FORMAT.format(cr3.getEndTime()));
 
-            String queryString = "MATCH path1=shortestPath((src:Account {accountId: $id1})-[edge:transfer*]->" +
-                    "(dst:Account {accountId: $id2}))" +
-                    "WHERE all(e IN edge WHERE localDateTime($start_time) < e.createTime < localDateTime($end_time)) " +
-                    "RETURN length(path1) AS shortestPathLength";
+            //Breadth-first search (BFS)
+            //BFS is ideal for finding the shortest path between two nodes in an unweighted graph or between the
+            // start node and any other node in the graph. Since it traverses all nodes at a given depth before moving
+            // to the next level, it ensures that the shortest path is found.
+            String queryString = "MATCH path1=(src:Account {accountId: $id1})-[edge:transfer *BFS (r, n | localDateTime($start_time) < r.createTime < localDateTime($end_time)) ]->" +
+                    "(dst:Account {accountId: $id2})" +
+                    "RETURN size(path1) AS shortestPathLength";
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             String result = client.execute(queryString, queryParams);
@@ -188,7 +211,7 @@ public class MemgraphDb extends Db {
                 complexRead3Results = cr3.deserializeResult(result);
                 resultReporter.report(complexRead3Results.size(), complexRead3Results, cr3);
             } catch (IOException e) {
-                //DummyDb.logger.warn(e.getMessage() + "\n" + cr1);
+                MemgraphDb.logger.warn(e.getMessage() + "\n" + cr3);
                 resultReporter.report(0, new ArrayList<>(), cr3);
             }
         }
@@ -201,31 +224,38 @@ public class MemgraphDb extends Db {
             MemgraphDb.logger.info(cr4.toString());
 
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("id1", cr4.getId1());
-            queryParams.put("id2", cr4.getId2());
+            queryParams.put("id1", cr4.getId1() + "");
+            queryParams.put("id2", cr4.getId2() + "");
             queryParams.put("start_time", DATE_FORMAT.format(cr4.getStartTime()));
             queryParams.put("end_time", DATE_FORMAT.format(cr4.getEndTime()));
 
             String queryString = "MATCH " +
                     "(src:Account {accountId: $id1})-[edge1:transfer]->(dst:Account {accountId: $id2}), " +
-                    "(src)<-[edge2:transfer]-(other:Account)-[edge3:transfer]->(dst) " +
+                    "(dst)-[edge2:transfer]->(other:Account)-[edge3:transfer]->(src) " +                //changed src dst and direction so it matches cr4
                     "WHERE localDateTime($start_time) < edge1.createTime < localDateTime($end_time) " +
                     "AND localDateTime($start_time) < edge2.createTime < localDateTime($end_time) " +
                     "AND localDateTime($start_time) < edge3.createTime < localDateTime($end_time) " +
                     "WITH " +
-                    "other.id AS otherId, " +
-                    "count(edge2) AS numEdge2, sum(edge2.amount) AS sumEdge2Amount, " +
-                    "max(edge2.amount) AS maxEdge2Amount, " +
-                    "count(edge3) AS numEdge3, sum(edge3.amount) AS sumEdge3Amount, " +
-                    "max(edge3.amount) AS maxEdge3Amount " +
+                    "other.accountId AS otherId, " +
+                    "count(DISTINCT edge2) AS numEdge2, (round(1000 * sum(DISTINCT edge2.amount))/1000) AS sumEdge2Amount, " +       //added distinct, so it doesn't add same edge more than once
+                    "(round(1000 * max(edge2.amount))/1000) AS maxEdge2Amount, " +
+                    "count(DISTINCT edge3) AS numEdge3, (round(1000 * sum(DISTINCT edge3.amount))/1000) AS sumEdge3Amount, " +
+                    "(round(1000 * sum(edge3.amount))/1000) AS maxEdge3Amount " +
                     "ORDER BY sumEdge2Amount+sumEdge3Amount DESC " +
                     "WITH collect({otherId: otherId, numEdge2: numEdge2, sumEdge2Amount: sumEdge2Amount, " +
                     "maxEdge2Amount: maxEdge2Amount, numEdge3: numEdge3, sumEdge3Amount: sumEdge3Amount, " +
                     "maxEdge3Amount: maxEdge3Amount}) AS results " +
                     "WITH coalesce(head(results), {otherId: -1, numEdge2: 0, sumEdge2Amount: 0, maxEdge2Amount: 0, " +
                     "numEdge3: 0, sumEdge3Amount: 0, maxEdge3Amount: 0}) AS top " +
-                    "RETURN top.otherId, top.numEdge2, top.sumEdge2Amount, top.maxEdge2Amount, top.numEdge3, " +
-                    "top.sumEdge3Amount, top.maxEdge3Amount";
+                    "RETURN " +
+                    "top.otherId AS otherId, " +
+                    "top.numEdge2 AS numEdge2,  " +
+                    "top.sumEdge2Amount AS sumEdge2Amount, " +
+                    "top.maxEdge2Amount AS maxEdge2Amount, " +
+                    "top.numEdge3 AS numEdge3, " +
+                    "top.sumEdge3Amount AS sumEdge3Amount, " +
+                    "top.maxEdge3Amount AS maxEdge3Amount " +
+                    "ORDER BY sumEdge2Amount DESC, sumEdge3Amount DESC, otherId ASC ";
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             String result = client.execute(queryString, queryParams);
@@ -235,7 +265,7 @@ public class MemgraphDb extends Db {
                 complexRead4Results = cr4.deserializeResult(result);
                 resultReporter.report(complexRead4Results.size(), complexRead4Results, cr4);
             } catch (IOException e) {
-                //DummyDb.logger.warn(e.getMessage() + "\n" + cr1);
+                MemgraphDb.logger.warn(e.getMessage() + "\n" + cr4);
                 resultReporter.report(0, new ArrayList<>(), cr4);
             }
         }
@@ -248,20 +278,22 @@ public class MemgraphDb extends Db {
             MemgraphDb.logger.info(cr5.toString());
 
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("id", cr5.getId());
+            queryParams.put("id", cr5.getId() + "");
             queryParams.put("start_time", DATE_FORMAT.format(cr5.getStartTime()));
             queryParams.put("end_time", DATE_FORMAT.format(cr5.getEndTime()));
+            queryParams.put("last_time", "9999-12-30T23:59:59");
 
             String queryString = "MATCH " +
-                    "(person:Person {id: $id})-[edge1:own]->(src:Account), " +
+                    "(person:Person {personId: $id})-[edge1:own]->(src:Account), " +
                     "p=(src)-[edge2:transfer*1..3]->(dst:Account) " +
-                    "WITH p, [e IN relationships(p) | e.timestamp] AS ts " +
+                    "WITH p, extract(e IN relationships(p) | e.createTime) AS ts, " +
+                    "nodes(p) AS nodeList " +
                     "WHERE "+
                     "reduce(curr = head(ts), x IN tail(ts) | CASE WHEN curr < x THEN x " +
-                    "ELSE 9223372036854775807 end) <> 9223372036854775807 " +
-                    "AND all(e IN edge2 WHERE localDateTime($start_time) < e.timestamp < localDateTime($end_time)) " +
-                    "RETURN p AS path " +
-                    "ORDER BY length(p) DESC";
+                    "ELSE localDateTime($last_time) end) <> localDateTime($last_time) " +
+                    "AND all(e IN edge2 WHERE localDateTime($start_time) < e.createTime < localDateTime($end_time)) " +
+                    "RETURN extract(node in nodeList | node.accountId) AS path " +
+                    "ORDER BY size(p) DESC";
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             String result = client.execute(queryString, queryParams);
@@ -271,7 +303,7 @@ public class MemgraphDb extends Db {
                 complexRead5Results = cr5.deserializeResult(result);
                 resultReporter.report(complexRead5Results.size(), complexRead5Results, cr5);
             } catch (IOException e) {
-                //DummyDb.logger.warn(e.getMessage() + "\n" + cr1);
+                MemgraphDb.logger.warn(e.getMessage() + "\n" + cr5);
                 resultReporter.report(0, new ArrayList<>(), cr5);
             }
         }
@@ -284,19 +316,26 @@ public class MemgraphDb extends Db {
             MemgraphDb.logger.info(cr6.toString());
 
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("id", cr6.getId());
+            queryParams.put("id", cr6.getId() + "");
             queryParams.put("threshold1", cr6.getThreshold1());
             queryParams.put("threshold2", cr6.getThreshold2());
             queryParams.put("start_time", DATE_FORMAT.format(cr6.getStartTime()));
             queryParams.put("end_time", DATE_FORMAT.format(cr6.getEndTime()));
 
-            String queryString = "MATCH (src1:Account)-[edge1:transfer]->(mid:Account)-[edge2:withdraw]-> " +
-                    "(dstCard:Account {accountId: $id, type: 'card'}) " +
-                    "WHERE localDateTime($start_time) < edge1.createTime < localDateTime($end_time) AND edge1.amount > $threshold1 " +
-                    "AND localDateTime($start_time) < edge2.createTime < localDateTime($end_time) AND edge2.amount > $threshold2 " +
-                    "RETURN mid.id AS midId, sum(edge1.amount) AS sumEdge1Amount, " +
-                    "sum(edge2.amount) AS sumEdge2Amount " +
-                    "ORDER BY sumEdge2Amount DESC";
+            String queryString = "MATCH (src1:Account)-[edge1:transfer]->(mid:Account)-[edge2:withdraw]->(dstCard:Account {accountId: $id}) " +
+                    "WHERE localDateTime($start_time) < edge1.createTime < localDateTime($end_time) " +
+                    "  AND edge1.amount > $threshold1 " +
+                    "  AND localDateTime($start_time) < edge2.createTime < localDateTime($end_time) " +
+                    "  AND edge2.amount > $threshold2 " +
+                    "WITH mid, count(edge1) AS transferCount, " +
+                    "(round(1000 * sum(edge1.amount))/1000) AS sumEdge1Amount, " +
+                    "(round(1000 * sum(edge2.amount))/1000) AS sumEdge2Amount " +
+                    "WHERE transferCount > 3 " +
+                    "RETURN " +
+                    "  mid.accountId AS midId, " +
+                    "  sumEdge1Amount, " +
+                    "  sumEdge2Amount " +
+                    "ORDER BY sumEdge2Amount DESC, midId ASC";
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             String result = client.execute(queryString, queryParams);
@@ -306,7 +345,7 @@ public class MemgraphDb extends Db {
                 complexRead6Results = cr6.deserializeResult(result);
                 resultReporter.report(complexRead6Results.size(), complexRead6Results, cr6);
             } catch (IOException e) {
-                //DummyDb.logger.warn(e.getMessage() + "\n" + cr1);
+                MemgraphDb.logger.warn(e.getMessage() + "\n" + cr6);
                 resultReporter.report(0, new ArrayList<>(), cr6);
             }
         }
@@ -316,26 +355,28 @@ public class MemgraphDb extends Db {
         @Override
         public void executeOperation(ComplexRead7 cr7, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            MemgraphDb.logger.info(cr7.toString());
+            Neo4jDb.logger.info(cr7.toString());
 
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("id", cr7.getId());
+            queryParams.put("id", cr7.getId() + "");
             queryParams.put("threshold", cr7.getThreshold());
             queryParams.put("start_time", DATE_FORMAT.format(cr7.getStartTime()));
             queryParams.put("end_time", DATE_FORMAT.format(cr7.getEndTime()));
 
-            String queryString = "MATCH (src:Account)-[edge1:transfer|withdraw]->(mid:Account {accountId: $id})-" +
-                    "[edge2:transfer|withdraw]->(dst:Account)" +
-                    "WHERE localDateTime($start_time) < edge1.createTime < localDateTime($end_time) " +
-                    "AND edge1.amount > $threshold " +
-                    "AND localDateTime($start_time) < edge2.createTime < localDateTime($end_time) " +
-                    "AND edge2.amount > $threshold " +
-                    "WITH src, dst, edge1, edge2, sum(edge1.amount) AS sumEdge1Amount, sum(edge2.amount) AS sumEdge2Amount " +
-                    "RETURN count(src) AS numSrc, count(dst) AS numDst, " +
-                    "CASE " +
-                    "WHEN sumEdge2Amount > 0 THEN round(1000*sumEdge1Amount/sumEdge2Amount) / 1000 " +
-                    "ELSE 0 " +
-                    "END AS inoutRatio";
+            String queryString = "MATCH (src:Account)-[edge1:transfer]->(mid:Account {accountId: $id})-[edge2:transfer]->(dst:Account)\n" +
+                    "WHERE localDateTime($start_time) < edge1.createTime < localDateTime($end_time) \n" +
+                    "                    AND edge1.amount > $threshold \n" +
+                    "                    AND localDateTime($start_time) < edge2.createTime < localDateTime($end_time) \n" +
+                    "                    AND edge2.amount > $threshold \n" +
+                    "WITH src, dst, sum(edge1.amount) AS sumEdge1Amount, sum(edge2.amount) AS sumEdge2Amount,\n" +
+                    "       COUNT(src) AS numSrc,\n" +
+                    "       COUNT(dst) AS numDst\n" +
+                    "RETURN numSrc, numDst," +
+                    "       CASE " +
+                    "       WHEN sumEdge2Amount > 0 THEN ROUND(1000 * sumEdge1Amount / sumEdge2Amount) / 1000 " +
+                    "       ELSE -1 " +
+                    "       END AS inOutRatio " +
+                    "ORDER BY numSrc DESC, numDst DESC, inOutRatio DESC";
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             String result = client.execute(queryString, queryParams);
@@ -345,7 +386,7 @@ public class MemgraphDb extends Db {
                 complexRead7Results = cr7.deserializeResult(result);
                 resultReporter.report(complexRead7Results.size(), complexRead7Results, cr7);
             } catch (IOException e) {
-                //DummyDb.logger.warn(e.getMessage() + "\n" + cr1);
+                Neo4jDb.logger.warn(e.getMessage() + "\n" + cr7);
                 resultReporter.report(0, new ArrayList<>(), cr7);
             }
         }
@@ -355,10 +396,10 @@ public class MemgraphDb extends Db {
         @Override
         public void executeOperation(ComplexRead8 cr8, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            MemgraphDb.logger.info(cr8.toString());
+            Neo4jDb.logger.info(cr8.toString());
 
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("id", cr8.getId());
+            queryParams.put("id", cr8.getId() + "");
             queryParams.put("threshold", cr8.getThreshold());
             queryParams.put("start_time", DATE_FORMAT.format(cr8.getStartTime()));
             queryParams.put("end_time", DATE_FORMAT.format(cr8.getEndTime()));
@@ -366,15 +407,16 @@ public class MemgraphDb extends Db {
             String queryString = "MATCH " +
                     "(loan:Loan {loanId: $id})-[edge1:deposit]->(src:Account), " +
                     "p=(src)-[edge234:transfer|withdraw*1..3]->(dst:Account) " +
-                    "WITH loan, p, dst, [e IN relationships(p) | e.amount] AS amts " +
+                    "WITH loan, p, dst, extract(e IN relationships(p) | e.amount) AS amts " +
                     "WHERE " +
-                    "$start_time < edge1.createTime < localDateTime($end_time) " +
-                    "AND all(e IN edge234 WHERE localDateTime($start_time) < e.timestamp < localDateTime($end_time)) " +
+                    "localDateTime($start_time) < edge1.createTime < localDateTime($end_time) " +
+                    "AND all(e IN edge234 WHERE localDateTime($start_time) < e.createTime < localDateTime($end_time)) " +
                     "AND reduce(curr = head(amts), x IN tail(amts) | CASE WHEN (curr <> -1) " +
                     "AND (x > curr*$threshold) THEN x ELSE -1 end) <> -1 " +
-                    "WITH loan, length(p)+1 AS distanceFromLoan, dst, sum(relationships(p)[-1].amount) AS inflow " +
-                    "RETURN dst.id AS dstId, round(1000 * inflow/loan.loanAmount) / 1000 AS ratio, distanceFromLoan " +
-                    "ORDER BY distanceFromLoan DESC, ratio DESC";
+                    "WITH loan, size(p)+1 AS minDistanceFromLoan, dst, sum(last(amts)) AS inflow " +
+                    "RETURN dst.accountId AS dstId, round(1000 * inflow/loan.loanAmount) / 1000 AS ratio, minDistanceFromLoan " +
+                    "ORDER BY minDistanceFromLoan DESC, ratio DESC, size(dstId) ASC, dstId ASC"; //WORK AROUND SORT BECAUSE ID IS A STRING
+
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             String result = client.execute(queryString, queryParams);
@@ -384,7 +426,7 @@ public class MemgraphDb extends Db {
                 complexRead8Results = cr8.deserializeResult(result);
                 resultReporter.report(complexRead8Results.size(), complexRead8Results, cr8);
             } catch (IOException e) {
-                //DummyDb.logger.warn(e.getMessage() + "\n" + cr1);
+                Neo4jDb.logger.warn(e.getMessage() + "\n" + cr8);
                 resultReporter.report(0, new ArrayList<>(), cr8);
             }
         }
@@ -394,40 +436,53 @@ public class MemgraphDb extends Db {
         @Override
         public void executeOperation(ComplexRead9 cr9, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            MemgraphDb.logger.info(cr9.toString());
+            Neo4jDb.logger.info(cr9.toString());
 
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("id", cr9.getId());
+            queryParams.put("id", cr9.getId() + "");
             queryParams.put("threshold", cr9.getThreshold());
             queryParams.put("lowerbound", 0);
             queryParams.put("upperbound", 2147483647);
             queryParams.put("start_time", DATE_FORMAT.format(cr9.getStartTime()));
             queryParams.put("end_time", DATE_FORMAT.format(cr9.getEndTime()));
 
-            String queryString = "MATCH " +
-                    "(loan:Loan)-[edge1:deposit]->(mid:Account {accountId: $id})-[edge2:repay]->(loan), " +
-                    "(up:Account)-[edge3:transfer]->(mid)-[edge4:transfer]->(down:Account) " +
-                    "WHERE edge1.amount > $threshold AND $start_time < edge1.createTime < $end_time " +
-                    "AND edge2.amount > $threshold AND $start_time < edge2.createTime < $end_time " +
-                    "AND $lowerbound < edge1.amount/edge2.amount < $upperbound " +
-                    "AND edge3.amount > $threshold AND $start_time < edge3.createTime < $end_time " +
-                    "AND edge4.amount > $threshold AND $start_time < edge4.createTime < $end_time " +
-                    "RETURN " +
-                    "CASE " +
-                    "WHEN sum(edge2.amount) > 0 AND sum(edge4.amount) > 0 THEN " +
-                    "round(1000 * sum(edge1.amount)/sum(edge2.amount)) / 1000 " +
-                    "ELSE 0 " +
-                    "END AS ratioRepay, " +
-                    "CASE " +
-                    "WHEN sum(edge2.amount) > 0 THEN " +
-                    "round(1000 * sum(edge1.amount)/sum(edge4.amount)) / 1000 " +
-                    "ELSE 0 " +
-                    "END AS ratioOut, " +
-                    "CASE " +
-                    "WHEN sum(edge4.amount) > 0 THEN " +
-                    "round(1000 * sum(edge3.amount)/sum(edge4.amount)) / 1000 " +
-                    "ELSE 0 " +
-                    "END AS ratioIn";
+            String queryString = "MATCH \n" +
+                    "    (loan:Loan)-[edge1:deposit]->(mid:Account {accountId: $id})-[edge2:repay]->(loan),\n" +
+                    "    (up:Account)-[edge3:transfer]->(mid)-[edge4:transfer]->(down:Account)\n" +
+                    "WHERE \n" +
+                    "    edge1.amount > $threshold \n" +
+                    "    AND localDateTime($start_time) < edge1.createTime < localDateTime($end_time) \n" +
+                    "    AND edge2.amount > $threshold \n" +
+                    "    AND localDateTime($start_time) < edge2.createTime < localDateTime($end_time) \n" +
+                    "    AND $lowerbound < edge1.amount / edge2.amount < $upperbound \n" +
+                    "    AND edge3.amount > $threshold \n" +
+                    "    AND localDateTime($start_time) < edge3.createTime < localDateTime($end_time) \n" +
+                    "    AND edge4.amount > $threshold \n" +
+                    "    AND localDateTime($start_time) < edge4.createTime < localDateTime($end_time)\n" +
+                    "WITH \n" +
+                    "    sum(edge1.amount) AS totalDepositAmount,\n" +
+                    "    sum(edge2.amount) AS totalRepayAmount,\n" +
+                    "    sum(edge3.amount) AS totalTransferAmount,\n" +
+                    "    sum(edge4.amount) AS totalDownstreamTransferAmount\n" +
+                    "RETURN \n" +
+                    "    CASE \n" +
+                    "        WHEN totalRepayAmount > 0 AND totalDownstreamTransferAmount > 0 THEN \n" +
+                    "            round(1000 * totalDepositAmount / totalRepayAmount) / 1000 \n" +
+                    "        ELSE \n" +
+                    "            -1 \n" +
+                    "    END AS ratioRepay, \n" +
+                    "    CASE \n" +
+                    "        WHEN totalDownstreamTransferAmount > 0 THEN \n" +
+                    "            round(1000 * totalDepositAmount / totalDownstreamTransferAmount) / 1000 \n" +
+                    "        ELSE \n" +
+                    "            -1 \n" +
+                    "    END AS ratioDeposit, \n" +
+                    "    CASE \n" +
+                    "        WHEN totalDownstreamTransferAmount > 0 THEN \n" +
+                    "            round(1000 * totalTransferAmount / totalDownstreamTransferAmount) / 1000 \n" +
+                    "        ELSE \n" +
+                    "            -1 \n" +
+                    "    END AS ratioTransfer\n";
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             String result = client.execute(queryString, queryParams);
@@ -437,7 +492,7 @@ public class MemgraphDb extends Db {
                 complexRead9Results = cr9.deserializeResult(result);
                 resultReporter.report(complexRead9Results.size(), complexRead9Results, cr9);
             } catch (IOException e) {
-                //DummyDb.logger.warn(e.getMessage() + "\n" + cr1);
+                Neo4jDb.logger.warn(e.getMessage() + "\n" + cr9);
                 resultReporter.report(0, new ArrayList<>(), cr9);
             }
         }
@@ -450,18 +505,19 @@ public class MemgraphDb extends Db {
             MemgraphDb.logger.info(cr10.toString());
 
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("id1", cr10.getPid1());
-            queryParams.put("id2", cr10.getPid2());
+            queryParams.put("id1", cr10.getPid1() + "");
+            queryParams.put("id2", cr10.getPid2() + "");
             queryParams.put("start_time", DATE_FORMAT.format(cr10.getStartTime()));
             queryParams.put("end_time", DATE_FORMAT.format(cr10.getEndTime()));
 
             String queryString = "MATCH " +
                     "(p1:Person {personId: $id1})-[edge1:invest]->(m1:Company), " +
                     "(p2:Person {personId: $id2})-[edge2:invest]->(m2:Company) " +
-                    "WHERE localDateTime($start_time) < edge1.timestamp < localDateTime($end_time) " +
-                    "AND localDateTime($start_time) < edge2.timestamp < localDateTime($end_time) " +
-                    "WITH gds.similarity.jaccard(collect(m1.id), collect(m2.id)) AS jaccardSimilarity " +
-                    "RETURN round(1000 * jaccardSimilarity) / 1000 AS jaccardSimilarity";
+                    "WITH collect(m1) as m1List, collect(m2) as m2List " +
+                    "WITH " +
+                    "toFloat(size(collections.intersection(m1List, m2List))) AS intersection, " +
+                    "size(collections.union(m1List, m2List)) AS union " +
+                    "RETURN round(1000 * (intersection)/union) / 1000 AS jaccardSimilarity";
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             String result = client.execute(queryString, queryParams);
@@ -471,7 +527,7 @@ public class MemgraphDb extends Db {
                 complexRead10Results = cr10.deserializeResult(result);
                 resultReporter.report(complexRead10Results.size(), complexRead10Results, cr10);
             } catch (IOException e) {
-                //DummyDb.logger.warn(e.getMessage() + "\n" + cr1);
+                MemgraphDb.logger.warn(e.getMessage() + "\n" + cr10);
                 resultReporter.report(0, new ArrayList<>(), cr10);
             }
         }
@@ -481,10 +537,10 @@ public class MemgraphDb extends Db {
         @Override
         public void executeOperation(ComplexRead11 cr11, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            MemgraphDb.logger.info(cr11.toString());
+            Neo4jDb.logger.info(cr11.toString());
 
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("id", cr11.getId());
+            queryParams.put("id", cr11.getId() + "");
             queryParams.put("start_time", DATE_FORMAT.format(cr11.getStartTime()));
             queryParams.put("end_time", DATE_FORMAT.format(cr11.getEndTime()));
 
@@ -492,7 +548,9 @@ public class MemgraphDb extends Db {
                     "WHERE all(e IN relationships(path) WHERE localDateTime($start_time) < e.createTime < localDateTime($end_time)) " +
                     "UNWIND nodes(path)[1..] AS person " +
                     "MATCH (person)-[:apply]->(loan:Loan) " +
-                    "RETURN sum(loan.loanAmount) AS sumLoanAmount, count(loan) AS numLoans";
+                    "RETURN " +
+                    "(round(1000 * sum(loan.loanAmount))/1000) AS sumLoanAmount, " +
+                    "count(loan) AS numLoans";
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             String result = client.execute(queryString, queryParams);
@@ -502,7 +560,7 @@ public class MemgraphDb extends Db {
                 complexRead11Results = cr11.deserializeResult(result);
                 resultReporter.report(complexRead11Results.size(), complexRead11Results, cr11);
             } catch (IOException e) {
-                //DummyDb.logger.warn(e.getMessage() + "\n" + cr1);
+                Neo4jDb.logger.warn(e.getMessage() + "\n" + cr11);
                 resultReporter.report(0, new ArrayList<>(), cr11);
             }
         }
@@ -512,10 +570,10 @@ public class MemgraphDb extends Db {
         @Override
         public void executeOperation(ComplexRead12 cr12, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            MemgraphDb.logger.info(cr12.toString());
+            Neo4jDb.logger.info(cr12.toString());
 
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("id", cr12.getId());
+            queryParams.put("id", cr12.getId() + "");
             queryParams.put("start_time", DATE_FORMAT.format(cr12.getStartTime()));
             queryParams.put("end_time", DATE_FORMAT.format(cr12.getEndTime()));
 
@@ -524,8 +582,10 @@ public class MemgraphDb extends Db {
                     "-[edge2:transfer]->(compAcc:Account) " +
                     "<-[edge3:own]-(company:Company) " +
                     "WHERE localDateTime($start_time) < edge2.createTime < localDateTime($end_time) " +
-                    "RETURN compAcc.id AS compAccountId, sum(edge2.amount) AS sumEdge2Amount " +
-                    "ORDER BY sumEdge2Amount DESC";
+                    "RETURN " +
+                    "compAcc.accountId AS compAccountId, " +
+                    "(round(1000 * sum(edge2.amount))/1000) AS sumEdge2Amount " +
+                    "ORDER BY sumEdge2Amount DESC, compAccountId ASC";
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             String result = client.execute(queryString, queryParams);
@@ -535,7 +595,7 @@ public class MemgraphDb extends Db {
                 complexRead12Results = cr12.deserializeResult(result);
                 resultReporter.report(complexRead12Results.size(), complexRead12Results, cr12);
             } catch (IOException e) {
-                //DummyDb.logger.warn(e.getMessage() + "\n" + cr1);
+                Neo4jDb.logger.warn(e.getMessage() + "\n" + cr12);
                 resultReporter.report(0, new ArrayList<>(), cr12);
             }
         }
@@ -545,13 +605,13 @@ public class MemgraphDb extends Db {
         @Override
         public void executeOperation(SimpleRead1 sr1, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            MemgraphDb.logger.info(sr1.toString());
+            Neo4jDb.logger.info(sr1.toString());
 
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("id", sr1.getId());
+            queryParams.put("id", sr1.getId() + "");
 
             String queryString = "MATCH (account:Account {accountId: $id}) " +
-                    "RETURN account{.createTime,.isBlocked,.type}";
+                    "RETURN account.createTime AS createTime, account.isBlocked AS isBlocked, account.accountType AS type";
 
             /*
             PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
@@ -575,7 +635,7 @@ public class MemgraphDb extends Db {
                 simpleRead1Results = sr1.deserializeResult(result);
                 resultReporter.report(simpleRead1Results.size(), simpleRead1Results, sr1);
             } catch (IOException e) {
-                //DummyDb.logger.warn(e.getMessage() + "\n" + cr1);
+                Neo4jDb.logger.warn(e.getMessage() + "\n" + sr1);
                 resultReporter.report(0, new ArrayList<>(), sr1);
             }
 
@@ -586,21 +646,25 @@ public class MemgraphDb extends Db {
         @Override
         public void executeOperation(SimpleRead2 sr2, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            MemgraphDb.logger.info(sr2.toString());
+            Neo4jDb.logger.info(sr2.toString());
 
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("id", sr2.getId());
+            queryParams.put("id", sr2.getId() + "");
             queryParams.put("start_time", DATE_FORMAT.format(sr2.getStartTime()));
             queryParams.put("end_time", DATE_FORMAT.format(sr2.getEndTime()));
 
             String queryString = "MATCH (src:Account {accountId: $id}) " +
                     "OPTIONAL MATCH (src)-[edge1:transfer]->(dst1:Account) " +
                     "WHERE localDateTime($start_time) < edge1.createTime < localDateTime($end_time) " +
-                    "OPTIONAL MATCH (src)<-[edge2:transfer]->(dst2:Account) " +
+                    "OPTIONAL MATCH (src)<-[edge2:transfer]-(dst2:Account) " +
                     "WHERE localDateTime($start_time) < edge2.createTime < localDateTime($end_time) " +
                     "RETURN " +
-                    "    sum(edge1.amount), max(edge1.amount), count(edge1), " +
-                    "    sum(edge2.amount), max(edge2.amount), count(edge2)";
+                    "(round(1000 * sum(edge1.amount))/1000) AS sumEdge1Amount, " +
+                    "(round(1000 * max(edge1.amount))/1000) AS maxEdge1Amount, " +
+                    "count(edge1) AS numEdge1, " +
+                    "(round(1000 * sum(edge2.amount))/1000) AS sumEdge2Amount, " +
+                    "(round(1000 * max(edge2.amount))/1000) AS maxEdge2Amount, " +
+                    "count(edge2) AS numEdge2";
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             String result = client.execute(queryString, queryParams);
@@ -610,7 +674,7 @@ public class MemgraphDb extends Db {
                 simpleRead2Results = sr2.deserializeResult(result);
                 resultReporter.report(simpleRead2Results.size(), simpleRead2Results, sr2);
             } catch (IOException e) {
-                //DummyDb.logger.warn(e.getMessage() + "\n" + cr1);
+                Neo4jDb.logger.warn(e.getMessage() + "\n" + sr2);
                 resultReporter.report(0, new ArrayList<>(), sr2);
             }
 
@@ -621,10 +685,10 @@ public class MemgraphDb extends Db {
         @Override
         public void executeOperation(SimpleRead3 sr3, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            MemgraphDb.logger.info(sr3.toString());
+            Neo4jDb.logger.info(sr3.toString());
 
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("id", sr3.getId());
+            queryParams.put("id", sr3.getId() + "");
             queryParams.put("threshold", sr3.getThreshold());
             queryParams.put("start_time", DATE_FORMAT.format(sr3.getStartTime()));
             queryParams.put("end_time", DATE_FORMAT.format(sr3.getEndTime()));
@@ -633,12 +697,13 @@ public class MemgraphDb extends Db {
                     "OPTIONAL MATCH (blockedSrc:Account {isBlocked: true})-[edge1:transfer]->(dst) " +
                     "WHERE localDateTime($start_time) < edge1.createTime < localDateTime($end_time) " +
                     "AND edge1.amount > $threshold " +
-                    "RETURN " +
-                    "CASE " +
-                    "WHEN count(edge2) > 0 THEN " +
-                    "round(1000*count(edge1)/count(edge2)) / 1000 " +
-                    "ELSE 0 " +
-                    "END AS blockRatio";
+                    "WITH count(edge1) AS blockedTransfers, count(edge2) AS totalTransfers " +
+                    "RETURN CASE " +
+                    "    WHEN totalTransfers > 0 THEN " +
+                    "        round(1000 * blockedTransfers / totalTransfers) / 1000 " +
+                    "    ELSE " +
+                    "        -1 " +
+                    "END AS blockRatio ";
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             String result = client.execute(queryString, queryParams);
@@ -648,7 +713,7 @@ public class MemgraphDb extends Db {
                 simpleRead3Results = sr3.deserializeResult(result);
                 resultReporter.report(simpleRead3Results.size(), simpleRead3Results, sr3);
             } catch (IOException e) {
-                //DummyDb.logger.warn(e.getMessage() + "\n" + cr1);
+                Neo4jDb.logger.warn(e.getMessage() + "\n" + sr3);
                 resultReporter.report(0, new ArrayList<>(), sr3);
             }
         }
@@ -658,10 +723,10 @@ public class MemgraphDb extends Db {
         @Override
         public void executeOperation(SimpleRead4 sr4, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            MemgraphDb.logger.info(sr4.toString());
+            Neo4jDb.logger.info(sr4.toString());
 
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("id", sr4.getId());
+            queryParams.put("id", sr4.getId() + "");
             queryParams.put("threshold", sr4.getThreshold());
             queryParams.put("start_time", DATE_FORMAT.format(sr4.getStartTime()));
             queryParams.put("end_time", DATE_FORMAT.format(sr4.getEndTime()));
@@ -669,7 +734,11 @@ public class MemgraphDb extends Db {
             String queryString = "MATCH (src:Account {accountId: $id})-[edge:transfer]->(dst:Account) " +
                     "WHERE localDateTime($start_time) < edge.createTime < localDateTime($end_time) " +
                     "AND edge.amount > $threshold " +
-                    "RETURN dst.id AS dstId, count(edge) AS numEdges, sum(edge.amount) AS sumAmount";
+                    "RETURN " +
+                    "dst.accountId AS dstId, " +
+                    "count(edge) AS numEdges, " +
+                    "(round(1000 * sum(edge.amount))/1000) AS sumAmount " +
+                    "ORDER BY sumAmount DESC, dstId ASC";
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             String result = client.execute(queryString, queryParams);
@@ -679,7 +748,7 @@ public class MemgraphDb extends Db {
                 simpleRead4Results = sr4.deserializeResult(result);
                 resultReporter.report(simpleRead4Results.size(), simpleRead4Results, sr4);
             } catch (IOException e) {
-                //DummyDb.logger.warn(e.getMessage() + "\n" + cr1);
+                Neo4jDb.logger.warn(e.getMessage() + "\n" + sr4);
                 resultReporter.report(0, new ArrayList<>(), sr4);
             }
         }
@@ -689,10 +758,10 @@ public class MemgraphDb extends Db {
         @Override
         public void executeOperation(SimpleRead5 sr5, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            MemgraphDb.logger.info(sr5.toString());
+            Neo4jDb.logger.info(sr5.toString());
 
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("id", sr5.getId());
+            queryParams.put("id", sr5.getId() + "");
             queryParams.put("threshold", sr5.getThreshold());
             queryParams.put("start_time", DATE_FORMAT.format(sr5.getStartTime()));
             queryParams.put("end_time", DATE_FORMAT.format(sr5.getEndTime()));
@@ -700,7 +769,11 @@ public class MemgraphDb extends Db {
             String queryString = "MATCH (dst:Account {accountId: $id})<-[edge:transfer]-(src:Account) " +
                     "WHERE localDateTime($start_time) < edge.createTime < localDateTime($end_time) " +
                     "  AND edge.amount > $threshold " +
-                    "RETURN src.id AS srcId, count(edge) AS numEdges, sum(edge.amount) AS sumAmount";
+                    "RETURN " +
+                    "src.accountId AS srcId, " +
+                    "count(edge) AS numEdges, " +
+                    "(round(1000 * sum(edge.amount))/1000) AS sumAmount " +
+                    "ORDER BY sumAmount DESC, srcId ASC";
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             String result = client.execute(queryString, queryParams);
@@ -710,7 +783,7 @@ public class MemgraphDb extends Db {
                 simpleRead5Results = sr5.deserializeResult(result);
                 resultReporter.report(simpleRead5Results.size(), simpleRead5Results, sr5);
             } catch (IOException e) {
-                //DummyDb.logger.warn(e.getMessage() + "\n" + cr1);
+                Neo4jDb.logger.warn(e.getMessage() + "\n" + sr5);
                 resultReporter.report(0, new ArrayList<>(), sr5);
             }
         }
@@ -720,10 +793,10 @@ public class MemgraphDb extends Db {
         @Override
         public void executeOperation(SimpleRead6 sr6, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            MemgraphDb.logger.info(sr6.toString());
+            Neo4jDb.logger.info(sr6.toString());
 
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("id", sr6.getId());
+            queryParams.put("id", sr6.getId() + "");
             queryParams.put("start_time", DATE_FORMAT.format(sr6.getStartTime().getTime()));
             queryParams.put("end_time", DATE_FORMAT.format(sr6.getEndTime().getTime()));
 
@@ -732,7 +805,8 @@ public class MemgraphDb extends Db {
                     "WHERE src.accountId <> dst.accountId " +
                     "  AND localDateTime($start_time) < e1.createTime < localDateTime($end_time) " +
                     "  AND localDateTime($start_time) < e2.createTime < localDateTime($end_time) " +
-                    "RETURN collect(dst.accountId) AS dstId";
+                    "RETURN COLLECT(dst.accountId) AS dstId " +
+                    "ORDER BY dstId ASC";
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             String result = client.execute(queryString, queryParams);
@@ -742,7 +816,7 @@ public class MemgraphDb extends Db {
                 simpleRead6Results = sr6.deserializeResult(result);
                 resultReporter.report(simpleRead6Results.size(), simpleRead6Results, sr6);
             } catch (IOException e) {
-                //DummyDb.logger.warn(e.getMessage() + "\n" + cr1);
+                MemgraphDb.logger.warn(e.getMessage() + "\n" + sr6);
                 resultReporter.report(0, new ArrayList<>(), sr6);
             }
         }
@@ -752,18 +826,24 @@ public class MemgraphDb extends Db {
         @Override
         public void executeOperation(Write1 w1, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            MemgraphDb.logger.info(w1.toString());
+            Neo4jDb.logger.info(w1.toString());
 
             //Add a person Node
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("personId", w1.getPersonId());
+            queryParams.put("personId", w1.getPersonId() + "");
             queryParams.put("personName", w1.getPersonName());
             queryParams.put("createTime", DATE_FORMAT.format(new Date()));
             queryParams.put("isBlocked", w1.getIsBlocked());
 
+            /*
             String queryString = "MERGE (p:Person {personId: $personId})" +
                     "ON CREATE SET p.personName = $personName, " +
-                    "p.isBlocked = $isBlocked, p.createTime = localDateTime($createTime)";
+                    "p.isBlocked = $isBlocked, p.createTime = dateTime($createTime)";
+
+
+             */
+            String queryString = "CREATE (:Person {personId: $personId, personName: $personName, " +
+                    "                    isBlocked: $isBlocked, createTime: dateTime($createTime)})";
 
             /*
             PREFIX ex: <http://example.org/>
@@ -771,7 +851,7 @@ public class MemgraphDb extends Db {
                     ex:? a ex:Person ;
                      ex:personName "?" ;
                      ex:isBlocked ? ;
-                     ex:createTime "?"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+                     ex:createTime "?"^^<http://www.w3.org/2001/XMLSchema#localDateTime> .
             }
              */
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
@@ -784,28 +864,25 @@ public class MemgraphDb extends Db {
         @Override
         public void executeOperation(Write2 w2, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            MemgraphDb.logger.info(w2.toString());
+            Neo4jDb.logger.info(w2.toString());
 
             //Add a Company Node
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("companyId", w2.getCompanyId());
+            queryParams.put("companyId", w2.getCompanyId() + "");
             queryParams.put("companyName", w2.getCompanyName());
             queryParams.put("createTime", DATE_FORMAT.format(new Date()));
             queryParams.put("isBlocked", w2.getIsBlocked());
 
-            String queryString = "MERGE (c:Company {companyId: $companyId})" +
-                    "ON CREATE SET c.name = $companyName, " +
-                    "c.createTime = localDateTime($createTime), c.isBlocked = $isBlocked";
-
             /*
-            PREFIX ex: <http://example.org/>
-            INSERT DATA{
-                    ex:? a ex:Company ;
-                     ex:companyName "?" ;
-                     ex:isBlocked ? ;
-                     ex:createTime "?"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-            }
+            String queryString = "MERGE (c:Company {companyId: $companyId})" +
+                    "ON CREATE SET c.companyName = $companyName, " +
+                    "c.createTime = dateTime($createTime), c.isBlocked = $isBlocked";
+
+
              */
+            String queryString = "CREATE (:Company {companyId: $companyId, companyName: $companyName, " +
+                    "                    isBlocked: $isBlocked, createTime: dateTime($createTime)})";
+
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             client.execute(queryString, queryParams);
@@ -817,25 +894,23 @@ public class MemgraphDb extends Db {
         @Override
         public void executeOperation(Write3 w3, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            MemgraphDb.logger.info(w3.toString());
+            Neo4jDb.logger.info(w3.toString());
 
             //Add a Medium Node
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("mediumId", w3.getMediumId());
+            queryParams.put("mediumId", w3.getMediumId() + "");
             queryParams.put("mediumType", w3.getMediumType());
             queryParams.put("createTime", DATE_FORMAT.format(new Date()));
 
-            String queryString = "MERGE (m:Medium {mediumId: $mediumId})" +
-                    "ON CREATE SET m.mediumType = $mediumType, m.createTime = localDateTime($createTime)";
-
             /*
-            PREFIX ex: <http://example.org/>
-            INSERT DATA{
-                    ex:? a ex:Medium ;
-                     ex:mediumType "?" ;
-                     ex:createTime "?"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-            }
+            String queryString = "MERGE (m:Medium {mediumId: $mediumId})" +
+                    "ON CREATE SET m.mediumType = $mediumType, m.createTime = dateTime($createTime)";
+
+
              */
+            String queryString = "CREATE (:Medium {mediumId: $mediumId, mediumType: $mediumType, " +
+                    "                    createTime: dateTime($createTime)})";
+
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             client.execute(queryString, queryParams);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w3);
@@ -846,30 +921,21 @@ public class MemgraphDb extends Db {
         @Override
         public void executeOperation(Write4 w4, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            MemgraphDb.logger.info(w4.toString());
+            Neo4jDb.logger.info(w4.toString());
 
             //Add an Account Node owned by Person
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("personId", w4.getPersonId());
-            queryParams.put("accountId", w4.getAccountId());
+            queryParams.put("personId", w4.getPersonId()+"");
+            queryParams.put("accountId", w4.getAccountId()+"");
             queryParams.put("time", DATE_FORMAT.format(w4.getTime()));
             queryParams.put("accountBlocked", w4.getAccountBlocked());
             queryParams.put("accountType", w4.getAccountType());
 
-            String queryString = "MATCH (p:Person {id: $personId}) " +
+            String queryString = "MATCH (p:Person {personId: $personId}) " +
                     "CREATE (p)-[:own {createTime: $time}]->" +
-                    "(:Account {id: $accountId, " +
+                    "(:Account {accountId: $accountId, " +
                     "createTime: localDateTime($time), isBlocked: $accountBlocked, accountType: $accountType})";
 
-            /*
-            PREFIX ex: <http://example.org/>
-            INSERT DATA{
-                    << ex:personId ex:ownPersonX ex:accountId >>
-                     ex:accountBlocked "?"^^<http://www.w3.org/2001/XMLSchema#boolean> ;
-                     ex:accountType "?" ;
-                     ex:createTime "?"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-            }
-             */
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             client.execute(queryString, queryParams);
@@ -881,31 +947,21 @@ public class MemgraphDb extends Db {
         @Override
         public void executeOperation(Write5 w5, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            MemgraphDb.logger.info(w5.toString());
+            Neo4jDb.logger.info(w5.toString());
 
             //Add an Account Node owned by Company
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("companyId", w5.getCompanyId());
-            queryParams.put("accountId", w5.getAccountId());
+            queryParams.put("companyId", w5.getCompanyId()+"");
+            queryParams.put("accountId", w5.getAccountId()+"");
             queryParams.put("time", DATE_FORMAT.format(w5.getTime()));
             queryParams.put("accountBlocked", w5.getAccountBlocked());
             queryParams.put("accountType", w5.getAccountType());
 
-            String queryString = "MATCH (c:Company {id: $companyId}) " +
+            String queryString = "MATCH (c:Company {companyId: $companyId}) " +
                     "CREATE (c)-[:own {createTime: $time}]->" +
                     "(:Account {accountId: $accountId, " +
-                    "createTime: localDateTime($time), isBlocked: $accountBlocked, type: $accountType})";
+                    "createTime: dateTime($time), isBlocked: $accountBlocked, type: $accountType})";
 
-
-            /*
-            PREFIX ex: <http://example.org/>
-            INSERT DATA{
-                    << ex:companyId ex:ownCompanyX ex:accountId >>
-                     ex:accountBlocked "?"^^<http://www.w3.org/2001/XMLSchema#boolean> ;
-                     ex:accountType "?" ;
-                     ex:createTime "?"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-            }
-             */
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             client.execute(queryString, queryParams);
@@ -917,31 +973,28 @@ public class MemgraphDb extends Db {
         @Override
         public void executeOperation(Write6 w6, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            MemgraphDb.logger.info(w6.toString());
+            Neo4jDb.logger.info(w6.toString());
 
             //Add Loan applied by Person
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("personId", w6.getPersonId());
-            queryParams.put("loanId", w6.getLoanId());
+            queryParams.put("personId", w6.getPersonId()+"");
+            queryParams.put("loanId", w6.getLoanId()+"");
             queryParams.put("time", DATE_FORMAT.format(w6.getTime()));
             queryParams.put("balance", w6.getBalance());
             queryParams.put("loanAmount", w6.getLoanAmount());
 
+            /*
             String queryString = "MATCH (p:Person {personId: $personId}) " +
                     "MERGE (l:Loan {loanId: $loanId}) " +
                     "SET l.loanAmount = $loanAmount, " +
-                    "l.balance = $balance, l.createTime = localDateTime($time) " +
-                    "CREATE (l)<-[:apply {createTime: localDateTime($time)}]-(p)";
+                    "l.balance = $balance, l.createTime = dateTime($time) " +
+                    "CREATE (l)<-[:apply {createTime: dateTime($time)}]-(p)";
 
-            /*
-            PREFIX ex: <http://example.org/>
-            INSERT DATA{
-                    << ex:loanId ex:applyPersonX ex:personId >>
-                     ex:balance "?"^^<http://www.w3.org/2001/XMLSchema#float> ;
-                     ex:loanAmount "?"^^<http://www.w3.org/2001/XMLSchema#float> ;
-                     ex:createTime "?"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-            }
              */
+            String queryString = "MATCH (p:Person {personId: $personId}) " +
+                    "CREATE (l:Loan {loanId: $loanId, loanAmount: $loanAmount, balance: $balance, createTime: dateTime($time)}) " +
+                    "CREATE (l)<-[:apply {createTime: dateTime($time)}]-(p)";
+
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             client.execute(queryString, queryParams);
@@ -953,31 +1006,28 @@ public class MemgraphDb extends Db {
         @Override
         public void executeOperation(Write7 w7, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            MemgraphDb.logger.info(w7.toString());
+            Neo4jDb.logger.info(w7.toString());
 
             //Add Loan applied by Company
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("companyId", w7.getCompanyId());
-            queryParams.put("loanId", w7.getLoanId());
+            queryParams.put("companyId", w7.getCompanyId()+"");
+            queryParams.put("loanId", w7.getLoanId()+"");
             queryParams.put("time", DATE_FORMAT.format(w7.getTime()));
             queryParams.put("balance", w7.getBalance());
             queryParams.put("loanAmount", w7.getLoanAmount());
 
+            /*
             String queryString = "MATCH (c:Company {companyId: $companyId}) " +
                     "MERGE (l:Loan {loanId: $loanId}) " +
                     "SET l.loanAmount = $loanAmount, " +
-                    "l.balance = $balance, l.createTime = localDateTime($time) " +
-                    "CREATE (l)<-[:apply {createTime: localDateTime($time)}]-(c)";
-
-            /*
-            PREFIX ex: <http://example.org/>
-            INSERT DATA{
-                    << ex:loanId ex:applyCompanyX ex:companyId >>
-                     ex:balance "?"^^<http://www.w3.org/2001/XMLSchema#float> ;
-                     ex:loanAmount "?"^^<http://www.w3.org/2001/XMLSchema#float> ;
-                     ex:createTime "?"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-            }
+                    "l.balance = $balance, l.createTime = dateTime($time) " +
+                    "CREATE (l)<-[:apply {createTime: dateTime($time)}]-(c)";
              */
+
+            String queryString = "MATCH (c:Company {companyId: $companyId}) " +
+                    "CREATE (l:Loan {loanId: $loanId, loanAmount: $loanAmount, balance: $balance, createTime: dateTime($time)}) " +
+                    "CREATE (l)<-[:apply {createTime: dateTime($time)}]-(c)";
+
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             client.execute(queryString, queryParams);
@@ -989,12 +1039,12 @@ public class MemgraphDb extends Db {
         @Override
         public void executeOperation(Write8 w8, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            MemgraphDb.logger.info(w8.toString());
+            Neo4jDb.logger.info(w8.toString());
 
             //Add Invest Between Person And Company
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("companyId", w8.getCompanyId());
-            queryParams.put("personId", w8.getPersonId());
+            queryParams.put("companyId", w8.getCompanyId()+"");
+            queryParams.put("personId", w8.getPersonId()+"");
             queryParams.put("time", DATE_FORMAT.format(w8.getTime()));
             queryParams.put("ratio", w8.getRatio());
 
@@ -1002,14 +1052,6 @@ public class MemgraphDb extends Db {
                     "MATCH (p:Person {personId: $personId}) " +
                     "CREATE (p)-[:invest {createTime: localDateTime($time), ratio: $ratio}]->(c)";
 
-            /*
-            PREFIX ex: <http://example.org/>
-            INSERT DATA{
-                    << ex:personId ex:investCompanyX ex:companyId >>
-                     ex:ratio "?"^^<http://www.w3.org/2001/XMLSchema#float> ;
-                     ex:createTime "?"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-            }
-             */
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             client.execute(queryString, queryParams);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w8);
@@ -1020,12 +1062,12 @@ public class MemgraphDb extends Db {
         @Override
         public void executeOperation(Write9 w9, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            MemgraphDb.logger.info(w9.toString());
+            Neo4jDb.logger.info(w9.toString());
 
             //Add Invest Between Company And Company
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("companyId1", w9.getCompanyId1());
-            queryParams.put("companyId2", w9.getCompanyId2());
+            queryParams.put("companyId1", w9.getCompanyId1()+"");
+            queryParams.put("companyId2", w9.getCompanyId2()+"");
             queryParams.put("time", DATE_FORMAT.format(w9.getTime()));
             queryParams.put("ratio", w9.getRatio());
 
@@ -1033,15 +1075,6 @@ public class MemgraphDb extends Db {
                     "MATCH (c2:Company {companyId: $companyId2}) " +
                     "CREATE (c1)-[:invest {createTime: localDateTime($time), ratio: $ratio}]->(c2)";
 
-
-            /*
-            PREFIX ex: <http://example.org/>
-            INSERT DATA{
-                    << ex:companyId1 ex:investCompanyX ex:companyId2 >>
-                     ex:ratio "?"^^<http://www.w3.org/2001/XMLSchema#float> ;
-                     ex:createTime "?"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-            }
-             */
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             client.execute(queryString, queryParams);
@@ -1053,25 +1086,18 @@ public class MemgraphDb extends Db {
         @Override
         public void executeOperation(Write10 w10, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            MemgraphDb.logger.info(w10.toString());
+            Neo4jDb.logger.info(w10.toString());
 
             //Add Guarantee Between Persons
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("personId1", w10.getPersonId1());
-            queryParams.put("personId2", w10.getPersonId2());
+            queryParams.put("personId1", w10.getPersonId1()+"");
+            queryParams.put("personId2", w10.getPersonId2()+"");
             queryParams.put("time", DATE_FORMAT.format(w10.getTime()));
 
             String queryString = "MATCH (p1:Person {personId: $personId1}) " +
                     "MATCH (p2:Person {personId: $personId2}) " +
                     "CREATE (p1)-[:guarantee {createTime: localDateTime($time)}]->(p2)";
 
-            /*
-            PREFIX ex: <http://example.org/>
-            INSERT DATA{
-                    << ex:personId1 ex:guaranteeCompanyX ex:personId2 >>
-                     ex:createTime "?"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-            }
-             */
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             client.execute(queryString, queryParams);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w10);
@@ -1082,25 +1108,18 @@ public class MemgraphDb extends Db {
         @Override
         public void executeOperation(Write11 w11, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            MemgraphDb.logger.info(w11.toString());
+            Neo4jDb.logger.info(w11.toString());
 
             //Add Guarantee Between Companies
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("companyId1", w11.getCompanyId1());
-            queryParams.put("companyId2", w11.getCompanyId2());
+            queryParams.put("companyId1", w11.getCompanyId1()+"");
+            queryParams.put("companyId2", w11.getCompanyId2()+"");
             queryParams.put("time", DATE_FORMAT.format(w11.getTime()));
 
             String queryString = "MATCH (c1:Company {companyId: $companyId1}) " +
                     "MATCH (c2:Company {companyId: $companyId2}) " +
                     "CREATE (c1)-[:guarantee {createTime: localDateTime($time)}]->(c2)";
 
-            /*
-            PREFIX ex: <http://example.org/>
-            INSERT DATA{
-                    << ex:companyId1 ex:guaranteeCompanyX ex:companyId2 >>
-                     ex:createTime "?"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-            }
-             */
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             client.execute(queryString, queryParams);
@@ -1112,27 +1131,18 @@ public class MemgraphDb extends Db {
         @Override
         public void executeOperation(Write12 w12, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            MemgraphDb.logger.info(w12.toString());
+            Neo4jDb.logger.info(w12.toString());
 
             //Add Transfer Between Accounts
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("accountId1", w12.getAccountId1());
-            queryParams.put("accountId2", w12.getAccountId2());
+            queryParams.put("accountId1", w12.getAccountId1()+"");
+            queryParams.put("accountId2", w12.getAccountId2()+"");
             queryParams.put("time", DATE_FORMAT.format(w12.getTime()));
             queryParams.put("amount", w12.getAmount());
 
             String queryString = "MATCH (a1:Account {accountId: $accountId1}) " +
                     "MATCH (a2:Account {accountId: $accountId2}) " +
                     "CREATE (a1)-[:transfer {createTime: localDateTime($time), amount: $amount}]->(a2)";
-
-            /*
-            PREFIX ex: <http://example.org/>
-            INSERT DATA{
-                    << ex:accountId1 ex:transferAccountX ex:accountId2 >>
-                     ex:amount "?"^^<http://www.w3.org/2001/XMLSchema#float> ;
-                     ex:createTime "?"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-            }
-             */
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             client.execute(queryString, queryParams);
@@ -1144,26 +1154,19 @@ public class MemgraphDb extends Db {
         @Override
         public void executeOperation(Write13 w13, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            MemgraphDb.logger.info(w13.toString());
+            Neo4jDb.logger.info(w13.toString());
 
             //Add Withdraw Between Accounts
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("accountId1", w13.getAccountId1());
-            queryParams.put("accountId2", w13.getAccountId2());
+            queryParams.put("accountId1", w13.getAccountId1()+"");
+            queryParams.put("accountId2", w13.getAccountId2()+"");
             queryParams.put("time", DATE_FORMAT.format(w13.getTime()));
             queryParams.put("amount", w13.getAmount());
 
             String queryString = "MATCH (a1:Account {accountId: $accountId1}) " +
                     "MATCH (a2:Account {accountId: $accountId2}) " +
                     "CREATE (a1)-[:withdraw {createTime: localDateTime($time), amount: $amount}]->(a2)";
-/*
-            PREFIX ex: <http://example.org/>
-            INSERT DATA{
-                    << ex:accountId1 ex:withdrawX ex:accountId2 >>
-                     ex:amount "?"^^<http://www.w3.org/2001/XMLSchema#float> ;
-                     ex:createTime "?"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-            }
-             */
+
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             client.execute(queryString, queryParams);
@@ -1175,12 +1178,12 @@ public class MemgraphDb extends Db {
         @Override
         public void executeOperation(Write14 w14, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            MemgraphDb.logger.info(w14.toString());
+            Neo4jDb.logger.info(w14.toString());
 
             //Add Repay Between Account And Loan
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("accountId", w14.getAccountId());
-            queryParams.put("loanId", w14.getLoanId());
+            queryParams.put("accountId", w14.getAccountId()+"");
+            queryParams.put("loanId", w14.getLoanId()+"");
             queryParams.put("time", DATE_FORMAT.format(w14.getTime()));
             queryParams.put("amount", w14.getAmount());
 
@@ -1188,14 +1191,6 @@ public class MemgraphDb extends Db {
                     "MATCH (l:Loan {loanId: $loanId}) " +
                     "CREATE (a)-[:repay {createTime: localDateTime($time), amount: $amount}]->(l)";
 
-            /*
-            PREFIX ex: <http://example.org/>
-            INSERT DATA{
-                    << ex:accountId ex:repayX ex:loanId >>
-                     ex:amount "?"^^<http://www.w3.org/2001/XMLSchema#float> ;
-                     ex:createTime "?"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-            }
-             */
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             client.execute(queryString, queryParams);
@@ -1207,12 +1202,12 @@ public class MemgraphDb extends Db {
         @Override
         public void executeOperation(Write15 w15, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            MemgraphDb.logger.info(w15.toString());
+            Neo4jDb.logger.info(w15.toString());
 
             //Add Deposit Between Loan And Account
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("accountId", w15.getAccountId());
-            queryParams.put("loanId", w15.getLoanId());
+            queryParams.put("accountId", w15.getAccountId()+"");
+            queryParams.put("loanId", w15.getLoanId()+"");
             queryParams.put("time", DATE_FORMAT.format(w15.getTime()));
             queryParams.put("amount", w15.getAmount());
 
@@ -1220,14 +1215,6 @@ public class MemgraphDb extends Db {
                     "MATCH (l:Loan {loanId: $loanId}) " +
                     "CREATE (l)-[:deposit {createTime: localDateTime($time), amount: $amount}]->(a)";
 
-            /*
-            PREFIX ex: <http://example.org/>
-            INSERT DATA{
-                    << ex:loanId ex:transferAccountX ex:accountId >>
-                     ex:amount "?"^^<http://www.w3.org/2001/XMLSchema#float> ;
-                     ex:createTime "?"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-            }
-             */
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             client.execute(queryString, queryParams);
@@ -1239,25 +1226,18 @@ public class MemgraphDb extends Db {
         @Override
         public void executeOperation(Write16 w16, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            MemgraphDb.logger.info(w16.toString());
+            Neo4jDb.logger.info(w16.toString());
 
             //Account signed in with Medium
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("accountId", w16.getAccountId());
-            queryParams.put("mediumId", w16.getMediumId());
+            queryParams.put("accountId", w16.getAccountId()+"");
+            queryParams.put("mediumId", w16.getMediumId()+"");
             queryParams.put("time", DATE_FORMAT.format(w16.getTime()));
 
             String queryString = "MATCH (a:Account {accountId: $accountId}) " +
                     "MATCH (m:Medium {mediumId: $mediumId}) " +
                     "CREATE (m)-[:signIn {createTime: localDateTime($time)}]->(a)";
 
-            /*
-            PREFIX ex: <http://example.org/>
-            INSERT DATA{
-                    << ex:mediumId ex:signInX ex:accountId >>
-                     ex:createTime "?"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-            }
-             */
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             client.execute(queryString, queryParams);
@@ -1269,27 +1249,16 @@ public class MemgraphDb extends Db {
         @Override
         public void executeOperation(Write17 w17, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            MemgraphDb.logger.info(w17.toString());
+            Neo4jDb.logger.info(w17.toString());
 
             //Remove an Account
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("accountId", w17.getAccountId());
+            queryParams.put("accountId", w17.getAccountId()+"");
 
             String queryString = "MATCH (a:Account {accountId: $accountId}) " +
                     "OPTIONAL MATCH (a)-[:repay]->(loan:Loan)-[:deposit]->(a)" +
                     "DETACH DELETE a, loan";
 
-
-            /*
-            PREFIX ex: <http://example.org/>
-
-            DELETE{
-                <<?s ?p ?o>> ?a ?b .
-            } WHERE {
-                <<?s ?p ?o>> ?a ?b .
-  	            FILTER(?s = ex:4894849844998308121 || ?o = ex:4894849844998308121)
-            }
-             */
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             client.execute(queryString, queryParams);
@@ -1301,11 +1270,11 @@ public class MemgraphDb extends Db {
         @Override
         public void executeOperation(Write18 w18, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            MemgraphDb.logger.info(w18.toString());
+            Neo4jDb.logger.info(w18.toString());
 
             //Block an Account of high risk
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("accountId", w18.getAccountId());
+            queryParams.put("accountId", w18.getAccountId()+"");
 
             String queryString = "MATCH (a:Account {accountId: $accountId}) " +
                     "SET a.isBlocked = true";
@@ -1320,11 +1289,11 @@ public class MemgraphDb extends Db {
         @Override
         public void executeOperation(Write19 w19, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            MemgraphDb.logger.info(w19.toString());
+            Neo4jDb.logger.info(w19.toString());
 
             //Block a Person of high risk
             Map<String, Object> queryParams = new HashMap<>();
-            queryParams.put("accountId", w19.getPersonId());
+            queryParams.put("accountId", w19.getPersonId()+"");
 
             String queryString = "MATCH (p:Person {personId: $personId}) " +
                     "SET p.isBlocked = true";
@@ -1339,7 +1308,97 @@ public class MemgraphDb extends Db {
         @Override
         public void executeOperation(ReadWrite1 rw1, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            MemgraphDb.logger.info(rw1.toString());
+            Neo4jDb.logger.info(rw1.toString());
+
+            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
+            String simpleRead1String = "MATCH (account:Account {accountId: $id}) " +
+                    "RETURN account.createTime AS createTime, account.isBlocked AS isBlocked, account.accountType AS type";
+            HashMap<String, Object> queryParamsSR1Src = new HashMap<>();
+            queryParamsSR1Src.put("id", rw1.getSrcId()+"");
+            HashMap<String, Object> queryParamsSR1Dst = new HashMap<>();
+            queryParamsSR1Dst.put("id", rw1.getDstId()+"");
+
+            String resultSrc = client.execute(simpleRead1String, queryParamsSR1Src);
+            String resultDst = client.execute(simpleRead1String, queryParamsSR1Dst);
+            try {
+                SimpleRead1Result[] simpleRead1SrcResults = new ObjectMapper().readValue(resultSrc, SimpleRead1Result[].class);
+                SimpleRead1Result[] simpleRead1DstResults = new ObjectMapper().readValue(resultDst, SimpleRead1Result[].class);
+                if(simpleRead1SrcResults.length>0 && simpleRead1SrcResults[0].getIsBlocked() || simpleRead1DstResults.length>0 && simpleRead1DstResults[0].getIsBlocked()){
+                    resultReporter.report(0, LdbcNoResult.INSTANCE, rw1);
+                    return;
+                }
+                String write12String = "MATCH (a1:Account {accountId: $accountId1}) " +
+                        "MATCH (a2:Account {accountId: $accountId2}) " +
+                        "CREATE (a1)-[:transfer {createTime: localDateTime($time), amount: $amount}]->(a2)";
+
+                HashMap<String, Object> queryParamsW12 = new HashMap<>();
+                queryParamsW12.put("accountId1", rw1.getSrcId()+"");
+                queryParamsW12.put("accountId2", rw1.getDstId()+"");
+                queryParamsW12.put("time", DATE_FORMAT.format(rw1.getTime()));
+                queryParamsW12.put("amount", rw1.getAmount());
+
+                Transaction tx = client.startTransaction(write12String, queryParamsW12);
+
+                String complexRead4String = "MATCH " +
+                        "(src:Account {accountId: $id1})-[edge1:transfer]->(dst:Account {accountId: $id2}), " +
+                        "(dst)-[edge2:transfer]->(other:Account)-[edge3:transfer]->(src) " +                //changed src dst and direction so it matches cr4
+                        "WHERE localDateTime($start_time) < edge1.createTime < localDateTime($end_time) " +
+                        "AND localDateTime($start_time) < edge2.createTime < localDateTime($end_time) " +
+                        "AND localDateTime($start_time) < edge3.createTime < localDateTime($end_time) " +
+                        "WITH " +
+                        "other.accountId AS otherId, " +
+                        "count(DISTINCT edge2) AS numEdge2, sum(DISTINCT edge2.amount) AS sumEdge2Amount, " +       //added distinct, so it doesn't add same edge more than once
+                        "max(edge2.amount) AS maxEdge2Amount, " +
+                        "count(DISTINCT edge3) AS numEdge3, sum(DISTINCT edge3.amount) AS sumEdge3Amount, " +
+                        "max(edge3.amount) AS maxEdge3Amount " +
+                        "ORDER BY sumEdge2Amount+sumEdge3Amount DESC " +
+                        "WITH collect({otherId: otherId, numEdge2: numEdge2, sumEdge2Amount: sumEdge2Amount, " +
+                        "maxEdge2Amount: maxEdge2Amount, numEdge3: numEdge3, sumEdge3Amount: sumEdge3Amount, " +
+                        "maxEdge3Amount: maxEdge3Amount}) AS results " +
+                        "WITH coalesce(head(results), {otherId: -1, numEdge2: 0, sumEdge2Amount: 0, maxEdge2Amount: 0, " +
+                        "numEdge3: 0, sumEdge3Amount: 0, maxEdge3Amount: 0}) AS top " +
+                        "RETURN " +
+                        "top.otherId AS otherId, " +
+                        "top.numEdge2 AS numEdge2,  " +
+                        "top.sumEdge2Amount AS sumEdge2Amount, " +
+                        "top.maxEdge2Amount AS maxEdge2Amount, " +
+                        "top.numEdge3 AS numEdge3, " +
+                        "top.sumEdge3Amount AS sumEdge3Amount, " +
+                        "top.maxEdge3Amount AS maxEdge3Amount " +
+                        "ORDER BY sumEdge2Amount DESC, sumEdge3Amount DESC, otherId ASC ";
+
+                HashMap<String, Object> queryParamsCr4 = new HashMap<>();
+                queryParamsCr4.put("id1", rw1.getSrcId()+"");
+                queryParamsCr4.put("id2", rw1.getDstId()+"");
+                queryParamsCr4.put("start_time", DATE_FORMAT.format(rw1.getStartTime()));
+                queryParamsCr4.put("end_time", DATE_FORMAT.format(rw1.getEndTime()));
+
+                Result result = tx.run(complexRead4String, queryParamsCr4);
+                String resultCr4 = client.resultToString(result);
+                ComplexRead4Result[] complexRead4Results = new ObjectMapper().readValue(resultCr4, ComplexRead4Result[].class);
+                if (complexRead4Results.length == 0 || complexRead4Results[0].getOtherId() == -1) {
+                    if(tx.isOpen()) tx.commit();
+                    resultReporter.report(0, LdbcNoResult.INSTANCE, rw1);
+                    return;
+                }
+                if(tx.isOpen()) tx.rollback();
+
+                String write18String = "MATCH (a:Account {accountId: $accountId}) " +
+                        "SET a.isBlocked = true";
+
+                HashMap<String, Object> queryParamsW18Src = new HashMap<>();
+                queryParamsW18Src.put("accountId", rw1.getSrcId()+"");
+                HashMap<String, Object> queryParamsW18Dst = new HashMap<>();
+                queryParamsW18Dst.put("accountId", rw1.getDstId()+"");
+
+                client.execute(write18String, queryParamsW18Src);
+                client.execute(write18String, queryParamsW18Dst);
+
+
+            } catch (JsonProcessingException e) {
+                throw new RuntimeException(e);
+            }
+
             resultReporter.report(0, LdbcNoResult.INSTANCE, rw1);
         }
     }
@@ -1348,6 +1407,90 @@ public class MemgraphDb extends Db {
         @Override
         public void executeOperation(ReadWrite2 rw2, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
+            Neo4jDb.logger.info(rw2.toString());
+
+            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
+            String simpleRead1String = "MATCH (account:Account {accountId: $id}) " +
+                    "RETURN account.createTime AS createTime, account.isBlocked AS isBlocked, account.accountType AS type";
+            HashMap<String, Object> queryParamsSR1Src = new HashMap<>();
+            queryParamsSR1Src.put("id", rw2.getSrcId()+"");
+            HashMap<String, Object> queryParamsSR1Dst = new HashMap<>();
+            queryParamsSR1Dst.put("id", rw2.getDstId()+"");
+
+            String resultSrc = client.execute(simpleRead1String, queryParamsSR1Src);
+            String resultDst = client.execute(simpleRead1String, queryParamsSR1Dst);
+            try {
+                SimpleRead1Result[] simpleRead1SrcResults = new ObjectMapper().readValue(resultSrc, SimpleRead1Result[].class);
+                SimpleRead1Result[] simpleRead1DstResults = new ObjectMapper().readValue(resultDst, SimpleRead1Result[].class);
+                if(simpleRead1SrcResults.length>0 && simpleRead1SrcResults[0].getIsBlocked() || simpleRead1DstResults.length>0 && simpleRead1DstResults[0].getIsBlocked()){
+                    resultReporter.report(0, LdbcNoResult.INSTANCE, rw2);
+                    return;
+                }
+                String write12String = "MATCH (a1:Account {accountId: $accountId1}) " +
+                        "MATCH (a2:Account {accountId: $accountId2}) " +
+                        "CREATE (a1)-[:transfer {createTime: localDateTime($time), amount: $amount}]->(a2)";
+
+                HashMap<String, Object> queryParamsW12 = new HashMap<>();
+                queryParamsW12.put("accountId1", rw2.getSrcId()+"");
+                queryParamsW12.put("accountId2", rw2.getDstId()+"");
+                queryParamsW12.put("time", DATE_FORMAT.format(rw2.getTime()));
+                queryParamsW12.put("amount", rw2.getAmount());
+
+                Transaction tx = client.startTransaction(write12String, queryParamsW12);
+
+                List<Float> ratios = new ArrayList<>();
+
+                for(String id: new String[]{rw2.getSrcId()+"", rw2.getDstId()+""}) {
+
+
+                    String complexRead7String = "MATCH (src:Account)-[edge1:transfer]->(mid:Account {accountId: $id})-[edge2:transfer]->(dst:Account)\n" +
+                            "WHERE localDateTime($start_time) < edge1.createTime < localDateTime($end_time) \n" +
+                            "                    AND edge1.amount > $threshold \n" +
+                            "                    AND localDateTime($start_time) < edge2.createTime < localDateTime($end_time) \n" +
+                            "                    AND edge2.amount > $threshold \n" +
+                            "WITH src, dst, sum(edge1.amount) AS sumEdge1Amount, sum(edge2.amount) AS sumEdge2Amount,\n" +
+                            "       COUNT(src) AS numSrc,\n" +
+                            "       COUNT(dst) AS numDst\n" +
+                            "RETURN numSrc, numDst," +
+                            "       CASE " +
+                            "       WHEN sumEdge2Amount > 0 THEN ROUND(1000 * sumEdge1Amount / sumEdge2Amount) / 1000 " +
+                            "       ELSE -1 " +
+                            "       END AS inOutRatio";
+
+                    HashMap<String, Object> queryParamsCr7 = new HashMap<>();
+                    queryParamsCr7.put("id", rw2.getSrcId()+"");
+                    queryParamsCr7.put("start_time", DATE_FORMAT.format(rw2.getStartTime()));
+                    queryParamsCr7.put("end_time", DATE_FORMAT.format(rw2.getEndTime()));
+                    queryParamsCr7.put("threshold", rw2.getAmountThreshold());
+
+                    String resultCr7 = client.execute(complexRead7String, queryParamsCr7);
+                    ComplexRead7Result[] complexRead7Results = new ObjectMapper().readValue(resultCr7, ComplexRead7Result[].class);
+                    if(complexRead7Results.length>0) ratios.add(complexRead7Results[0].getInOutRatio());
+                }
+
+                if (ratios.size()==2 && (ratios.get(0) <= rw2.getRatioThreshold() || ratios.get(1) <= rw2.getRatioThreshold())) {
+                    if(tx.isOpen()) tx.commit();
+                    resultReporter.report(0, LdbcNoResult.INSTANCE, rw2);
+                    return;
+                }
+                if(tx.isOpen()) tx.rollback();
+
+
+                String write18String = "MATCH (a:Account {accountId: $accountId}) " +
+                        "SET a.isBlocked = true";
+
+                HashMap<String, Object> queryParamsW18Src = new HashMap<>();
+                queryParamsW18Src.put("accountId", rw2.getSrcId()+"");
+                HashMap<String, Object> queryParamsW18Dst = new HashMap<>();
+                queryParamsW18Dst.put("accountId", rw2.getDstId()+"");
+
+                client.execute(write18String, queryParamsW18Src);
+                client.execute(write18String, queryParamsW18Dst);
+
+
+            } catch (JsonProcessingException e) {
+                throw new RuntimeException(e);
+            }
 
             resultReporter.report(0, LdbcNoResult.INSTANCE, rw2);
         }
@@ -1357,7 +1500,74 @@ public class MemgraphDb extends Db {
         @Override
         public void executeOperation(ReadWrite3 rw3, CypherDbConnectionState cypherDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
-            MemgraphDb.logger.info(rw3.toString());
+            Neo4jDb.logger.info(rw3.toString());
+
+            CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
+            String simpleReadString = "MATCH (person:Person {personId: $id}) " +
+                    "RETURN person.createTime AS createTime, person.isBlocked AS isBlocked, person.null AS type";               //type workaround so we can parse this query like simple read 1 even though it isn't
+            HashMap<String, Object> queryParamsSRSrc = new HashMap<>();
+            queryParamsSRSrc.put("id", rw3.getSrcId()+"");
+            HashMap<String, Object> queryParamsSRDst = new HashMap<>();
+            queryParamsSRDst.put("id", rw3.getDstId()+"");
+
+            String resultSrc = client.execute(simpleReadString, queryParamsSRSrc);
+            String resultDst = client.execute(simpleReadString, queryParamsSRDst);
+            try {
+                SimpleRead1Result[] simpleReadSrcResults = new ObjectMapper().readValue(resultSrc, SimpleRead1Result[].class);
+                SimpleRead1Result[] simpleReadDstResults = new ObjectMapper().readValue(resultDst, SimpleRead1Result[].class);
+                if(simpleReadSrcResults.length>0 && simpleReadSrcResults[0].getIsBlocked() || simpleReadDstResults.length>0 && simpleReadDstResults[0].getIsBlocked()){
+                    resultReporter.report(0, LdbcNoResult.INSTANCE, rw3);
+                    return;
+                }
+                String write10String = "MATCH (p1:Person {personId: $personId1}) " +
+                        "MATCH (p2:Person {personId: $personId2}) " +
+                        "CREATE (p1)-[:guarantee {createTime: localDateTime($time)}]->(p2)";
+
+                HashMap<String, Object> queryParamsW10 = new HashMap<>();
+                queryParamsW10.put("personId1", rw3.getSrcId()+"");
+                queryParamsW10.put("personId2", rw3.getDstId()+"");
+                queryParamsW10.put("time", DATE_FORMAT.format(rw3.getTime()));
+
+                Transaction tx = client.startTransaction(write10String, queryParamsW10);
+
+                String complexRead7String = "MATCH path=(p1:Person {personId: $id})-[:guarantee*]->(pX:Person) " +
+                        "WHERE all(e IN relationships(path) WHERE localDateTime($start_time) < e.createTime < localDateTime($end_time)) " +
+                        "UNWIND nodes(path)[1..] AS person " +
+                        "MATCH (person)-[:apply]->(loan:Loan) " +
+                        "RETURN sum(loan.loanAmount) AS sumLoanAmount, count(loan) AS numLoans";
+
+                HashMap<String, Object> queryParamsCr11 = new HashMap<>();
+                queryParamsCr11.put("id", rw3.getSrcId()+"");
+                queryParamsCr11.put("start_time", DATE_FORMAT.format(rw3.getStartTime()));
+                queryParamsCr11.put("end_time", DATE_FORMAT.format(rw3.getEndTime()));
+
+                String resultCr11 = client.execute(complexRead7String, queryParamsCr11);
+                ComplexRead11Result[] complexRead11Results = new ObjectMapper().readValue(resultCr11, ComplexRead11Result[].class);
+
+
+                if (complexRead11Results.length>0 && complexRead11Results[0].getSumLoanAmount()<=rw3.getThreshold()) {
+                    if(tx.isOpen()) tx.commit();
+                    resultReporter.report(0, LdbcNoResult.INSTANCE, rw3);
+                    return;
+                }
+                if(tx.isOpen()) tx.rollback();
+
+
+                String writeString = "MATCH (a:Person {personId: $personId}) " +
+                        "SET a.isBlocked = true";
+
+                HashMap<String, Object> queryParamsWSrc = new HashMap<>();
+                queryParamsWSrc.put("personId", rw3.getSrcId()+"");
+                HashMap<String, Object> queryParamsWDst = new HashMap<>();
+                queryParamsWDst.put("personId", rw3.getDstId()+"");
+
+                client.execute(writeString, queryParamsWSrc);
+                client.execute(writeString, queryParamsWDst);
+
+
+            } catch (JsonProcessingException e) {
+                throw new RuntimeException(e);
+            }
             resultReporter.report(0, LdbcNoResult.INSTANCE, rw3);
         }
     }
