@@ -1442,14 +1442,16 @@ public class MemgraphDb extends Db {
                             "                    AND edge1.amount > $threshold \n" +
                             "                    AND localDateTime($start_time) < edge2.createTime < localDateTime($end_time) \n" +
                             "                    AND edge2.amount > $threshold \n" +
-                            "WITH src, dst, sum(edge1.amount) AS sumEdge1Amount, sum(edge2.amount) AS sumEdge2Amount,\n" +
-                            "       COUNT(src) AS numSrc,\n" +
-                            "       COUNT(dst) AS numDst\n" +
+                            "WITH REDUCE(total = 0, account IN COLLECT(DISTINCT edge1) | total + account.amount) AS sumEdge1Amount, " +
+                            "REDUCE(total = 0, account IN COLLECT(DISTINCT edge2) | total + account.amount) AS sumEdge2Amount,\n" +
+                            "       COUNT(DISTINCT src) AS numSrc,\n" +
+                            "       COUNT(DISTINCT dst) AS numDst\n" +
                             "RETURN numSrc, numDst," +
                             "       CASE " +
                             "       WHEN sumEdge2Amount > 0 THEN ROUND(1000 * sumEdge1Amount / sumEdge2Amount) / 1000 " +
                             "       ELSE -1 " +
-                            "       END AS inOutRatio";
+                            "       END AS inOutRatio " +
+                            "ORDER BY numSrc DESC, numDst DESC, inOutRatio DESC";
 
                     HashMap<String, Object> queryParamsCr7 = new HashMap<>();
                     queryParamsCr7.put("id", rw2.getSrcId()+"");
@@ -1524,18 +1526,20 @@ public class MemgraphDb extends Db {
 
                 Transaction tx = client.startTransaction(write10String, queryParamsW10);
 
-                String complexRead7String = "MATCH path=(p1:Person {personId: $id})-[:guarantee*]->(pX:Person) " +
+                String complexRead11String = "MATCH path=(p1:Person {personId: $id})-[:guarantee*]->(pX:Person) " +
                         "WHERE all(e IN relationships(path) WHERE localDateTime($start_time) < e.createTime < localDateTime($end_time)) " +
                         "UNWIND nodes(path)[1..] AS person " +
                         "MATCH (person)-[:apply]->(loan:Loan) " +
-                        "RETURN sum(loan.loanAmount) AS sumLoanAmount, count(loan) AS numLoans";
+                        "RETURN " +
+                        "(round(1000 * REDUCE(total = 0, loanA IN COLLECT(DISTINCT loan) | total + loanA.loanAmount))/1000) AS sumLoanAmount, " +
+                        "count(DISTINCT loan) AS numLoans";
 
                 HashMap<String, Object> queryParamsCr11 = new HashMap<>();
                 queryParamsCr11.put("id", rw3.getSrcId()+"");
                 queryParamsCr11.put("start_time", DATE_FORMAT.format(rw3.getStartTime()));
                 queryParamsCr11.put("end_time", DATE_FORMAT.format(rw3.getEndTime()));
 
-                String resultCr11 = client.execute(complexRead7String, queryParamsCr11);
+                String resultCr11 = client.execute(complexRead11String, queryParamsCr11);
                 ComplexRead11Result[] complexRead11Results = new ObjectMapper().readValue(resultCr11, ComplexRead11Result[].class);
 
 

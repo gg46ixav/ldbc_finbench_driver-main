@@ -1331,31 +1331,52 @@ public class Neo4jDb extends Db {
 
                 String complexRead4String = "MATCH " +
                         "(src:Account {accountId: $id1})-[edge1:transfer]->(dst:Account {accountId: $id2}), " +
-                        "(dst)-[edge2:transfer]->(other:Account)-[edge3:transfer]->(src) " +                //changed src dst and direction so it matches cr4
+                        "(dst)-[edge3:transfer]->(other:Account)-[edge2:transfer]->(src) " +
                         "WHERE dateTime($start_time) < edge1.createTime < dateTime($end_time) " +
                         "AND dateTime($start_time) < edge2.createTime < dateTime($end_time) " +
                         "AND dateTime($start_time) < edge3.createTime < dateTime($end_time) " +
-                        "WITH " +
-                        "other.accountId AS otherId, " +
-                        "count(DISTINCT edge2) AS numEdge2, sum(DISTINCT edge2.amount) AS sumEdge2Amount, " +       //added distinct, so it doesn't add same edge more than once
-                        "max(edge2.amount) AS maxEdge2Amount, " +
-                        "count(DISTINCT edge3) AS numEdge3, sum(DISTINCT edge3.amount) AS sumEdge3Amount, " +
-                        "max(edge3.amount) AS maxEdge3Amount " +
-                        "ORDER BY sumEdge2Amount+sumEdge3Amount DESC " +
-                        "WITH collect({otherId: otherId, numEdge2: numEdge2, sumEdge2Amount: sumEdge2Amount, " +
-                        "maxEdge2Amount: maxEdge2Amount, numEdge3: numEdge3, sumEdge3Amount: sumEdge3Amount, " +
-                        "maxEdge3Amount: maxEdge3Amount}) AS results " +
-                        "WITH coalesce(head(results), {otherId: -1, numEdge2: 0, sumEdge2Amount: 0, maxEdge2Amount: 0, " +
-                        "numEdge3: 0, sumEdge3Amount: 0, maxEdge3Amount: 0}) AS top " +
-                        "RETURN " +
-                        "top.otherId AS otherId, " +
-                        "top.numEdge2 AS numEdge2,  " +
-                        "top.sumEdge2Amount AS sumEdge2Amount, " +
-                        "top.maxEdge2Amount AS maxEdge2Amount, " +
-                        "top.numEdge3 AS numEdge3, " +
-                        "top.sumEdge3Amount AS sumEdge3Amount, " +
-                        "top.maxEdge3Amount AS maxEdge3Amount " +
-                        "ORDER BY sumEdge2Amount DESC, sumEdge3Amount DESC, otherId ASC ";
+                        "WITH \n" +
+                        "    other.accountId AS otherId,\n" +
+                        "    count(DISTINCT edge2) AS numEdge2, \n" +
+                        "    (round(1000 * (REDUCE(total = 0, edge IN COLLECT(DISTINCT edge2) | total + edge.amount))) / 1000) AS sumEdge2Amount,\n" +
+                        "    round(1000 * max(edge2.amount)) / 1000 AS maxEdge2Amount,\n" +
+                        "    count(DISTINCT edge3) AS numEdge3, \n" +
+                        "    (round(1000 * (REDUCE(total = 0, edge IN COLLECT(DISTINCT edge3) | total + edge.amount))) / 1000) AS sumEdge3Amount,\n" +
+                        "    round(1000 * max(edge3.amount)) / 1000 AS maxEdge3Amount\n" +
+                        "ORDER BY \n" +
+                        "    sumEdge2Amount + sumEdge3Amount DESC\n" +
+                        "WITH \n" +
+                        "    collect({\n" +
+                        "        otherId: otherId, \n" +
+                        "        numEdge2: numEdge2, \n" +
+                        "        sumEdge2Amount: sumEdge2Amount, \n" +
+                        "        maxEdge2Amount: maxEdge2Amount, \n" +
+                        "        numEdge3: numEdge3, \n" +
+                        "        sumEdge3Amount: sumEdge3Amount, \n" +
+                        "        maxEdge3Amount: maxEdge3Amount\n" +
+                        "    }) AS results\n" +
+                        "WITH \n" +
+                        "    coalesce(head(results), {\n" +
+                        "        otherId: -1, \n" +
+                        "        numEdge2: 0, \n" +
+                        "        sumEdge2Amount: 0, \n" +
+                        "        maxEdge2Amount: 0, \n" +
+                        "        numEdge3: 0, \n" +
+                        "        sumEdge3Amount: 0, \n" +
+                        "        maxEdge3Amount: 0\n" +
+                        "    }) AS top\n" +
+                        "RETURN \n" +
+                        "    top.otherId AS otherId, \n" +
+                        "    top.numEdge2 AS numEdge2,  \n" +
+                        "    top.sumEdge2Amount AS sumEdge2Amount, \n" +
+                        "    top.maxEdge2Amount AS maxEdge2Amount, \n" +
+                        "    top.numEdge3 AS numEdge3, \n" +
+                        "    top.sumEdge3Amount AS sumEdge3Amount, \n" +
+                        "    top.maxEdge3Amount AS maxEdge3Amount\n" +
+                        "ORDER BY \n" +
+                        "    sumEdge2Amount DESC, \n" +
+                        "    sumEdge3Amount DESC, \n" +
+                        "    otherId ASC;\n";
 
                 HashMap<String, Object> queryParamsCr4 = new HashMap<>();
                 queryParamsCr4.put("id1", rw1.getSrcId());
@@ -1442,14 +1463,16 @@ public class Neo4jDb extends Db {
                             "                    AND edge1.amount > $threshold \n" +
                             "                    AND dateTime($start_time) < edge2.createTime < dateTime($end_time) \n" +
                             "                    AND edge2.amount > $threshold \n" +
-                            "WITH src, dst, sum(edge1.amount) AS sumEdge1Amount, sum(edge2.amount) AS sumEdge2Amount,\n" +
-                            "       COUNT(src) AS numSrc,\n" +
-                            "       COUNT(dst) AS numDst\n" +
+                            "WITH REDUCE(total = 0, account IN COLLECT(DISTINCT edge1) | total + account.amount) AS sumEdge1Amount, " +
+                            "REDUCE(total = 0, account IN COLLECT(DISTINCT edge2) | total + account.amount) AS sumEdge2Amount,\n" +
+                            "       COUNT(DISTINCT src) AS numSrc,\n" +
+                            "       COUNT(DISTINCT dst) AS numDst\n" +
                             "RETURN numSrc, numDst," +
                             "       CASE " +
                             "       WHEN sumEdge2Amount > 0 THEN ROUND(1000 * sumEdge1Amount / sumEdge2Amount) / 1000 " +
                             "       ELSE -1 " +
-                            "       END AS inOutRatio";
+                            "       END AS inOutRatio " +
+                            "ORDER BY numSrc DESC, numDst DESC, inOutRatio DESC";
 
                     HashMap<String, Object> queryParamsCr7 = new HashMap<>();
                     queryParamsCr7.put("id", id);
@@ -1533,8 +1556,8 @@ public class Neo4jDb extends Db {
                         "UNWIND nodes(path)[1..] AS person " +
                         "MATCH (person)-[:apply]->(loan:Loan) " +
                         "RETURN " +
-                        "(round(1000 * sum(loan.loanAmount))/1000) AS sumLoanAmount, " +        //ADDED ROUND
-                        "count(loan) AS numLoans";
+                        "(round(1000 * REDUCE(total = 0, loanA IN COLLECT(DISTINCT loan) | total + loanA.loanAmount))/1000) AS sumLoanAmount, " +        //ADDED ROUND
+                        "count(DISTINCT loan) AS numLoans";
 
 
                 HashMap<String, Object> queryParamsCr11 = new HashMap<>();
