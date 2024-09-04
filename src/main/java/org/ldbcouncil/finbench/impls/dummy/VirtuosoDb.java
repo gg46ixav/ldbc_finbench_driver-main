@@ -44,8 +44,6 @@ public class VirtuosoDb extends Db {
         //registerOperationHandler(ComplexRead11.class, ComplexRead11Handler.class);
         registerOperationHandler(ComplexRead12.class, ComplexRead12Handler.class);
 
-        /*
-
 
 
         // simple reads
@@ -57,7 +55,7 @@ public class VirtuosoDb extends Db {
         registerOperationHandler(SimpleRead6.class, SimpleRead6Handler.class);
 
 
-         */
+
         // writes
 /*
         registerOperationHandler(Write1.class, Write1Handler.class);
@@ -108,7 +106,7 @@ public class VirtuosoDb extends Db {
 
     public static class ComplexRead1Handler implements OperationHandler<ComplexRead1, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(ComplexRead1 cr1, VirtuosoDbConnectionState VirtuosoDbConnectionState,
+        public void executeOperation(ComplexRead1 cr1, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(cr1);
 
@@ -121,7 +119,7 @@ public class VirtuosoDb extends Db {
                     "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\n" +
                     "PREFIX account: <http://example.org/Account/>\n" +
                     "PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\n" +
-                    "SELECT ?otherId ?accountDistance ?mediumId ?mediumType WHERE {\n" +
+                    "SELECT DISTINCT ?otherId ?accountDistance ?mediumId ?mediumType WHERE {\n" +
                     "  # Define the starting account\n" +
                     "  BIND(account:"+ cr1.getId() + " AS ?startAccount)\n" +
                     "  \n" +
@@ -207,11 +205,12 @@ public class VirtuosoDb extends Db {
                     "  }\n" +
                     "  \n" +
                     "  # Extract IDs\n" +
-                    "  BIND(STRAFTER(STR(?otherAccount), \"http://example.org/Account/\") AS ?otherId)\n" +
-                    "  BIND(STRAFTER(STR(?medium), \"http://example.org/Medium/\") AS ?mediumId)\n" +
-                    "}\n";
+                    "  BIND(xsd:long(STRAFTER(STR(?otherAccount), \"http://example.org/Account/\")) AS ?otherId)\n" +
+                    "  BIND(xsd:long(STRAFTER(STR(?medium), \"http://example.org/Medium/\")) AS ?mediumId)\n" +
+                    "} " +
+                    "ORDER BY ASC(?accountDistance) ASC(?otherId) ASC(?mediumId)";
 
-            VirtuosoDbConnectionState.VirtuosoDbClient client = VirtuosoDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             String result = client.execute(queryString);
 
             List<ComplexRead1Result> complexRead1Results = null;
@@ -229,7 +228,7 @@ public class VirtuosoDb extends Db {
 
     public static class ComplexRead2Handler implements OperationHandler<ComplexRead2, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(ComplexRead2 cr2, VirtuosoDbConnectionState VirtuosoDbConnectionState,
+        public void executeOperation(ComplexRead2 cr2, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(cr2.toString());
 
@@ -243,7 +242,7 @@ public class VirtuosoDb extends Db {
                     "PREFIX person: <http://example.org/Person/>\n" +
                     "PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\n" +
                     "\n" +
-                    "SELECT ?otherId ((round(1000 * SUM(?loanAmount))/1000) AS ?sumLoanAmount) ((round(1000 * SUM(?loanBalance))/1000) AS ?sumLoanBalance) WHERE {\n" +
+                    "SELECT ?otherId ((round(1000 * SUM(DISTINCT ?loanAmount))/1000) AS ?sumLoanAmount) ((round(1000 * SUM(DISTINCT ?loanBalance))/1000) AS ?sumLoanBalance) WHERE {\n" +
                     "  # Define the person and their owned accounts\n" +
                     "    ?blankNode rdf:subject person:"+ cr2.getId() + " ; " +
                     "               rdf:predicate ex:own ; " +
@@ -319,12 +318,12 @@ public class VirtuosoDb extends Db {
                     "        ex:balance ?loanBalance .\n" +
                     "  \n" +
                     "  # Extract other account ID\n" +
-                    "  BIND(STRAFTER(STR(?otherAccount), \"http://example.org/Account/\") AS ?otherId)\n" +
+                    "  BIND(xsd:long(STRAFTER(STR(?otherAccount), \"http://example.org/Account/\")) AS ?otherId)\n" +
                     "}\n" +
                     "GROUP BY ?otherId\n" +
                     "ORDER BY DESC(?sumLoanAmount) ASC(?otherId)\n";
 
-            VirtuosoDbConnectionState.VirtuosoDbClient client = VirtuosoDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             String result = client.execute(queryString);
 
             List<ComplexRead2Result> complexRead2Results = null;
@@ -340,7 +339,7 @@ public class VirtuosoDb extends Db {
 
     public static class ComplexRead3Handler implements OperationHandler<ComplexRead3, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(ComplexRead3 cr3, VirtuosoDbConnectionState VirtuosoDbConnectionState,
+        public void executeOperation(ComplexRead3 cr3, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(cr3.toString());
 
@@ -365,7 +364,7 @@ public class VirtuosoDb extends Db {
                     "BIND(COALESCE(?distance, -1) AS ?shortestPathLength)\n" +
                     "} GROUP BY ?shortestPathLength";
 
-            VirtuosoDbConnectionState.VirtuosoDbClient client = VirtuosoDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             String result = client.execute(queryString);
 
             List<ComplexRead3Result> complexRead3Results = null;
@@ -381,7 +380,7 @@ public class VirtuosoDb extends Db {
 
     public static class ComplexRead4Handler implements OperationHandler<ComplexRead4, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(ComplexRead4 cr4, VirtuosoDbConnectionState VirtuosoDbConnectionState,
+        public void executeOperation(ComplexRead4 cr4, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(cr4.toString());
 
@@ -418,27 +417,27 @@ public class VirtuosoDb extends Db {
                     "    FILTER(?createTime1 > xsd:dateTime(\""+DATE_FORMAT.format(cr4.getStartTime())+"\") && ?createTime1 < xsd:dateTime(\""+DATE_FORMAT.format(cr4.getEndTime())+"\"))\n" +
                     "    \n" +
                     "    # Step 2: Find all other accounts that received money from dst and transferred money to src\n" +
-                    "    ?blankNode2 rdf:subject ?dst .\n" +
-                    "    ?blankNode2 rdf:predicate ex:transfer .\n" +
-                    "    ?blankNode2 rdf:object ?other .\n" +
-                    "    ?blankNode2 ex:provenance ?occurrence2 .\n" +
-                    "    ?occurrence2 ex:createTime ?createTime2 .\n" +
-                    "    ?occurrence2 ex:amount ?amount2 ." +
-                    "    FILTER(?createTime2 > xsd:dateTime(\""+DATE_FORMAT.format(cr4.getStartTime())+"\") && ?createTime2 < xsd:dateTime(\""+DATE_FORMAT.format(cr4.getEndTime())+"\"))\n" +
-                    "    \n" +
-                    "    ?blankNode3 rdf:subject ?other .\n" +
+                    "    ?blankNode3 rdf:subject ?dst .\n" +
                     "    ?blankNode3 rdf:predicate ex:transfer .\n" +
-                    "    ?blankNode3 rdf:object ?src .\n" +
+                    "    ?blankNode3 rdf:object ?other .\n" +
                     "    ?blankNode3 ex:provenance ?occurrence3 .\n" +
                     "    ?occurrence3 ex:createTime ?createTime3 .\n" +
                     "    ?occurrence3 ex:amount ?amount3 ." +
                     "    FILTER(?createTime3 > xsd:dateTime(\""+DATE_FORMAT.format(cr4.getStartTime())+"\") && ?createTime3 < xsd:dateTime(\""+DATE_FORMAT.format(cr4.getEndTime())+"\"))\n" +
                     "    \n" +
+                    "    ?blankNode2 rdf:subject ?other .\n" +
+                    "    ?blankNode2 rdf:predicate ex:transfer .\n" +
+                    "    ?blankNode2 rdf:object ?src .\n" +
+                    "    ?blankNode2 ex:provenance ?occurrence2 .\n" +
+                    "    ?occurrence2 ex:createTime ?createTime2 .\n" +
+                    "    ?occurrence2 ex:amount ?amount2 ." +
+                    "    FILTER(?createTime2 > xsd:dateTime(\""+DATE_FORMAT.format(cr4.getStartTime())+"\") && ?createTime2 < xsd:dateTime(\""+DATE_FORMAT.format(cr4.getEndTime())+"\"))\n" +
+                    "    \n" +
                     "    BIND(STRAFTER(STR(?other), \"http://example.org/Account/\") AS ?otherId)\n" +
                     "}\n" +
                     "GROUP BY ?otherId\n";
 
-            VirtuosoDbConnectionState.VirtuosoDbClient client = VirtuosoDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             String result = client.execute(queryString);
 
             List<ComplexRead4Result> complexRead4Results = null;
@@ -454,7 +453,7 @@ public class VirtuosoDb extends Db {
 
     public static class ComplexRead5Handler implements OperationHandler<ComplexRead5, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(ComplexRead5 cr5, VirtuosoDbConnectionState VirtuosoDbConnectionState,
+        public void executeOperation(ComplexRead5 cr5, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(cr5.toString());
 
@@ -467,7 +466,7 @@ public class VirtuosoDb extends Db {
                     "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\n" +
                     "PREFIX person: <http://example.org/Person/>\n" +
                     "\n" +
-                    "SELECT ?startAccountId ?otherAccount1Id ?otherAccount2Id ?otherAccount3Id WHERE {\n" +
+                    "SELECT DISTINCT ?startAccountId ?otherAccount1Id ?otherAccount2Id ?otherAccount3Id WHERE {\n" +
                     "  # Define the person and their owned accounts\n" +
                     "    ?blankNode rdf:subject person:"+cr5.getId()+" .\n" +
                     "    ?blankNode rdf:predicate ex:own .\n" +
@@ -544,7 +543,7 @@ public class VirtuosoDb extends Db {
                     "}\n";
 
 
-            VirtuosoDbConnectionState.VirtuosoDbClient client = VirtuosoDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             String result = client.execute(queryString);
 
             List<ComplexRead5RDFResult> complexRead5RDFResults = null;
@@ -565,7 +564,7 @@ public class VirtuosoDb extends Db {
 
     public static class ComplexRead6Handler implements OperationHandler<ComplexRead6, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(ComplexRead6 cr6, VirtuosoDbConnectionState VirtuosoDbConnectionState,
+        public void executeOperation(ComplexRead6 cr6, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(cr6.toString());
 
@@ -580,7 +579,7 @@ public class VirtuosoDb extends Db {
                     "PREFIX account: <http://example.org/Account/>\n" +
                     "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\n" +
                     "\n" +
-                    "SELECT ?midId ((round(1000 * SUM(?edge1Amount))/1000) AS ?sumEdge1Amount) ((round(1000 * SUM(?edge2Amount))/1000) AS ?sumEdge2Amount) WHERE {\n" +
+                    "SELECT ?midId ((round(1000 * SUM(DISTINCT ?edge1Amount))/1000) AS ?sumEdge1Amount) ((round(1000 * SUM(DISTINCT ?edge2Amount))/1000) AS ?sumEdge2Amount) WHERE {\n" +
                     "\n" +
                     "  # Filter for the first edge (transfer)\n" +
                     "  ?blankNode1 rdf:subject ?src1 .\n" +
@@ -602,11 +601,11 @@ public class VirtuosoDb extends Db {
                     "  FILTER(xsd:dateTime(\""+DATE_FORMAT.format(cr6.getStartTime())+"\") < ?edge2CreateTime && ?edge2CreateTime < xsd:dateTime(\""+DATE_FORMAT.format(cr6.getEndTime())+"\"))\n" +
                     "  FILTER(?edge2Amount > "+cr6.getThreshold2()+")\n" +
                     "  \n" +
-                    "  BIND(STRAFTER(STR(?mid), \"http://example.org/Account/\") AS ?midId)\n" +
+                    "  BIND(xsd:long(STRAFTER(STR(?mid), \"http://example.org/Account/\")) AS ?midId)\n" +
                     "} GROUP BY ?midId HAVING (COUNT(?src1) > 3)\n" +
                     "ORDER BY DESC(?sumEdge2Amount) ASC(?midId) \n";
 
-            VirtuosoDbConnectionState.VirtuosoDbClient client = VirtuosoDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             String result = client.execute(queryString);
 
             List<ComplexRead6Result> complexRead6Results = null;
@@ -622,7 +621,7 @@ public class VirtuosoDb extends Db {
 
     public static class ComplexRead7Handler implements OperationHandler<ComplexRead7, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(ComplexRead7 cr7, VirtuosoDbConnectionState VirtuosoDbConnectionState,
+        public void executeOperation(ComplexRead7 cr7, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(cr7.toString());
 
@@ -636,9 +635,9 @@ public class VirtuosoDb extends Db {
                     "PREFIX account: <http://example.org/Account/>\n" +
                     "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\n" +
                     "\n" +
-                    "SELECT (COUNT(?src) AS ?numSrc) \n" +
-                    "       (COUNT(?dst) AS ?numDst) \n" +
-                    "       (IF(SUM(?edge2Amount) > 0, ROUND(1000 * (SUM(?edge1Amount) / SUM(?edge2Amount))) / 1000, 0) AS ?inOutRatio) \n" +
+                    "SELECT (COUNT(DISTINCT?src) AS ?numSrc) \n" +
+                    "       (COUNT(DISTINCT?dst) AS ?numDst) \n" +
+                    "       (IF(SUM(?edge2Amount) > 0, ROUND(1000 * (SUM(DISTINCT ?edge1Amount) / SUM(DISTINCT ?edge2Amount))) / 1000, 0) AS ?inOutRatio) \n" +
                     "WHERE {\n" +
                     "    \n" +
                     "  BIND(account:"+cr7.getId()+" AS ?mid)\n" +
@@ -664,11 +663,9 @@ public class VirtuosoDb extends Db {
                     "    FILTER(?edge2Amount > "+cr7.getThreshold()+")\n" +
                     "\n" +
                     "}\n" +
-                    "\n" +
-                    "GROUP BY ?src ?dst\n" +
                     "ORDER BY DESC(?inOutRatio)";
 
-            VirtuosoDbConnectionState.VirtuosoDbClient client = VirtuosoDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             String result = client.execute(queryString);
 
             List<ComplexRead7Result> complexRead7Results = null;
@@ -684,7 +681,7 @@ public class VirtuosoDb extends Db {
 
     public static class ComplexRead8Handler implements OperationHandler<ComplexRead8, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(ComplexRead8 cr8, VirtuosoDbConnectionState VirtuosoDbConnectionState,
+        public void executeOperation(ComplexRead8 cr8, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(cr8.toString());
 
@@ -698,7 +695,7 @@ public class VirtuosoDb extends Db {
                     "PREFIX loan: <http://example.org/Loan/>\n" +
                     "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\n" +
                     "\n" +
-                    "SELECT ?dstId (ROUND(1000 * (sum(?lastAmount) / max(?loanAmount))) / 1000 AS ?ratio) (max(?minDistanceFromLoanA) AS ?minDistanceFromLoan) WHERE {\n" +
+                    "SELECT ?dstId (ROUND(1000 * (sum(DISTINCT?lastAmount) / max(?loanAmount))) / 1000 AS ?ratio) (max(?minDistanceFromLoanA) AS ?minDistanceFromLoan) WHERE {\n" +
                     "  # Define the person and their owned accounts\n" +
                     " loan:"+cr8.getId()+" ex:loanAmount ?loanAmount ." +
 
@@ -788,13 +785,13 @@ public class VirtuosoDb extends Db {
                     "    BIND(4 AS ?minDistanceFromLoanA)\n" +
                     "    BIND(?edgeAmount33 AS ?lastAmount) " + //# Total amount for depth 3
                     "  }\n" +
-                    "  BIND(STRAFTER(STR(?otherAccount), \"http://example.org/Account/\") AS ?dstId)\n" +
+                    "  BIND(xsd:long(STRAFTER(STR(?otherAccount), \"http://example.org/Account/\")) AS ?dstId)\n" +
                     "  \n" +
                     "}\n"+
                     "GROUP BY ?dstId " +
                     "ORDER BY DESC (?minDistanceFromLoan) DESC (?ratio) ASC (?dstId)";
 
-            VirtuosoDbConnectionState.VirtuosoDbClient client = VirtuosoDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             String result = client.execute(queryString);
 
             List<ComplexRead8Result> complexRead8Results = null;
@@ -810,7 +807,7 @@ public class VirtuosoDb extends Db {
 
     public static class ComplexRead9Handler implements OperationHandler<ComplexRead9, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(ComplexRead9 cr9, VirtuosoDbConnectionState VirtuosoDbConnectionState,
+        public void executeOperation(ComplexRead9 cr9, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(cr9.toString());
 
@@ -828,9 +825,9 @@ public class VirtuosoDb extends Db {
                     "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\n" +
                     "\n" +
                     "SELECT \n" +
-                    "  (IF(SUM(?edge2Amount)>0, ROUND(1000 * (SUM(?edge1Amount) / SUM(?edge2Amount))/1.0) / 1000, -1) AS ?ratioRepay) " +
-                    "  (IF(SUM(?edge4Amount)>0, ROUND(1000 * (SUM(?edge1Amount) / SUM(?edge4Amount))/1.0) / 1000, -1) AS ?ratioDeposit) " +
-                    "   (IF(SUM(?edge4Amount)>0, ROUND(1000 * (SUM(?edge3Amount) / SUM(?edge4Amount))/1.0) / 1000, -1) AS ?ratioTransfer) " +
+                    "  (ROUND(1000 * (SUM(DISTINCT ?edge1Amount) / SUM(DISTINCT ?edge2Amount))/1.0) / 1000 AS ?ratioRepay) " +
+                    "  (ROUND(1000 * (SUM(DISTINCT ?edge1Amount) / SUM(DISTINCT ?edge4Amount))/1.0) / 1000 AS ?ratioDeposit) " +
+                    "  (ROUND(1000 * (SUM(DISTINCT ?edge3Amount) / SUM(DISTINCT ?edge4Amount))/1.0) / 1000 AS ?ratioTransfer) " +
                     "WHERE { \n" +
                     "    BIND(account:"+cr9.getId()+" AS ?startAccount)\n" +
                     "    \n" +
@@ -880,9 +877,9 @@ public class VirtuosoDb extends Db {
                     "    FILTER(?startTime < ?edge4CreateTime && ?edge4CreateTime < ?endTime)\n" +
                     "    FILTER(xsd:decimal(0) < (?edge1Amount / ?edge2Amount) \n" +
                     "           && (?edge1Amount / ?edge2Amount) < xsd:decimal(2147483647))\n" +
-                    "} GROUP BY ?startAccount";
+                    "}";
 
-            VirtuosoDbConnectionState.VirtuosoDbClient client = VirtuosoDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             String result = client.execute(queryString);
 
             List<ComplexRead9Result> complexRead9Results = null;
@@ -898,7 +895,7 @@ public class VirtuosoDb extends Db {
 
     public static class ComplexRead10Handler implements OperationHandler<ComplexRead10, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(ComplexRead10 cr10, VirtuosoDbConnectionState VirtuosoDbConnectionState,
+        public void executeOperation(ComplexRead10 cr10, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(cr10.toString());
 
@@ -970,7 +967,7 @@ public class VirtuosoDb extends Db {
                     "}\n";
 
 
-            VirtuosoDbConnectionState.VirtuosoDbClient client = VirtuosoDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             String result = client.execute(queryString);
 
             List<ComplexRead10Result> complexRead10Results = null;
@@ -986,7 +983,7 @@ public class VirtuosoDb extends Db {
 
     public static class ComplexRead11Handler implements OperationHandler<ComplexRead11, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(ComplexRead11 cr11, VirtuosoDbConnectionState VirtuosoDbConnectionState,
+        public void executeOperation(ComplexRead11 cr11, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(cr11.toString());
 
@@ -1001,7 +998,7 @@ public class VirtuosoDb extends Db {
                     "MATCH (person)-[:apply]->(loan:Loan) " +
                     "RETURN sum(loan.loanAmount) AS sumLoanAmount, count(loan) AS numLoans";
 
-            VirtuosoDbConnectionState.VirtuosoDbClient client = VirtuosoDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             String result = client.execute(queryString);
 
             List<ComplexRead11Result> complexRead11Results = null;
@@ -1017,7 +1014,7 @@ public class VirtuosoDb extends Db {
 
     public static class ComplexRead12Handler implements OperationHandler<ComplexRead12, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(ComplexRead12 cr12, VirtuosoDbConnectionState VirtuosoDbConnectionState,
+        public void executeOperation(ComplexRead12 cr12, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(cr12.toString());
 
@@ -1048,12 +1045,12 @@ public class VirtuosoDb extends Db {
                     "?blankNode3 rdf:predicate ex:own.\n" +
                     "?blankNode3 rdf:object ?companyAccount .\n" +
                     "FILTER(xsd:dateTime(\""+DATE_FORMAT.format(cr12.getStartTime())+"\")<?createTime && ?createTime<xsd:dateTime(\"" + DATE_FORMAT.format(cr12.getEndTime()) +"\"))" +
-                    "BIND(STRAFTER(STR(?companyAccount), \"http://example.org/Account/\") AS ?compAccountId)" +
+                    "BIND(xsd:long(STRAFTER(STR(?companyAccount), \"http://example.org/Account/\")) AS ?compAccountId)" +
                     "}" +
                     "GROUP BY ?compAccountId " +
                     "ORDER BY DESC (?sumEdge2Amount) ASC(?compAccountId)";
 
-            VirtuosoDbConnectionState.VirtuosoDbClient client = VirtuosoDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             String result = client.execute(queryString);
 
             List<ComplexRead12Result> complexRead12Results = null;
@@ -1067,9 +1064,9 @@ public class VirtuosoDb extends Db {
         }
     }
 
-    public static class SimpleRead1Handler implements OperationHandler<SimpleRead1, GraphDbConnectionState> {
+    public static class SimpleRead1Handler implements OperationHandler<SimpleRead1, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(SimpleRead1 sr1, GraphDbConnectionState graphDbConnectionState,
+        public void executeOperation(SimpleRead1 sr1, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(sr1.toString());
 
@@ -1082,11 +1079,12 @@ public class VirtuosoDb extends Db {
                     "            WHERE {\n" +
                     "                BIND(account:"+sr1.getId()+" AS ?account)\n" +
                     "                ?account ex:createTime ?createTime ;\n" +
-                    "                         ex:isBlocked ?isBlocked ;\n" +
+                    "                         ex:isBlocked ?isBlockedR ;\n" +
                     "                         ex:accountType ?type .        \n" +
+                    "               BIND(if(?isBlockedR = 1, \"true\", \"false\") AS ?isBlocked) " +
                     "            }";
 
-            GraphDbConnectionState.GraphDbClient client = graphDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             String result = client.execute(queryString);
 
             List<SimpleRead1Result> simpleRead1Results = null;
@@ -1101,9 +1099,9 @@ public class VirtuosoDb extends Db {
         }
     }
 
-    public static class SimpleRead2Handler implements OperationHandler<SimpleRead2, GraphDbConnectionState> {
+    public static class SimpleRead2Handler implements OperationHandler<SimpleRead2, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(SimpleRead2 sr2, GraphDbConnectionState graphDbConnectionState,
+        public void executeOperation(SimpleRead2 sr2, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(sr2.toString());
 
@@ -1115,11 +1113,11 @@ public class VirtuosoDb extends Db {
             String queryString = "PREFIX account: <http://example.org/Account/> " +
                     "             PREFIX ex: <http://example.org/>" +
                     "             SELECT    (round(1000*MAX(?edge1Amount))/1000 AS ?maxEdge1Amount) " +
-                    "                       (round(1000*SUM(?edge1Amount))/1000 AS ?sumEdge1Amount) " +
-                    "                       (COUNT(?occurrences1) AS ?numEdge1) " +
+                    "                       (round(1000*SUM(DISTINCT ?edge1Amount))/1000 AS ?sumEdge1Amount) " +
+                    "                       (COUNT(DISTINCT ?occurrences1) AS ?numEdge1) " +
                     "                       (round(1000*MAX(?edge2Amount))/1000 AS ?maxEdge2Amount) " +
-                    "                       (round(1000*SUM(?edge2Amount))/1000 AS ?sumEdge2Amount) " +
-                    "                       (COUNT(?occurrences2) AS ?numEdge2) " +
+                    "                       (round(1000*SUM(DISTINCT ?edge2Amount))/1000 AS ?sumEdge2Amount) " +
+                    "                       (COUNT(DISTINCT ?occurrences2) AS ?numEdge2) " +
                     "             WHERE{" +
                     "                 BIND(account:"+sr2.getId()+" AS ?src)  " +
                     "               ?blankNode rdf:subject ?src ." +
@@ -1137,7 +1135,7 @@ public class VirtuosoDb extends Db {
                     "               ?occurrences2 ex:amount ?edge2Amount . " +
                     "FILTER(xsd:dateTime(\""+DATE_FORMAT.format(sr2.getStartTime())+"\")<?edge2CreateTime && ?edge2CreateTime<xsd:dateTime(\"" + DATE_FORMAT.format(sr2.getEndTime()) +"\")) " +
                     "}";
-            GraphDbConnectionState.GraphDbClient client = graphDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             String result = client.execute(queryString);
 
             List<SimpleRead2Result> simpleRead2Results = null;
@@ -1152,9 +1150,9 @@ public class VirtuosoDb extends Db {
         }
     }
 
-    public static class SimpleRead3Handler implements OperationHandler<SimpleRead3, GraphDbConnectionState> {
+    public static class SimpleRead3Handler implements OperationHandler<SimpleRead3, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(SimpleRead3 sr3, GraphDbConnectionState graphDbConnectionState,
+        public void executeOperation(SimpleRead3 sr3, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(sr3.toString());
 
@@ -1169,7 +1167,7 @@ public class VirtuosoDb extends Db {
                     "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#> " +
 
                     // Erste Teilabfrage: Zählt alle Transfers zu ?dst
-                    "SELECT (IF(COUNT(?src1) > 0, (1000 * (COUNT(?src2) / COUNT(?src1))) / 1000, -1) AS ?blockRatio) " +
+                    "SELECT round(1000 * COUNT(DISTINCT ?occurrences2) / (COUNT(DISTINCT ?occurrences1)/1.0)) / 1000 AS ?blockRatio " +
                     "WHERE { " +
                     "  BIND(account:" + sr3.getId() + " AS ?dst) " +
 
@@ -1195,7 +1193,7 @@ public class VirtuosoDb extends Db {
                     "  } " +
                     "}";
 
-            GraphDbConnectionState.GraphDbClient client = graphDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             String result = client.execute(queryString);
 
             List<SimpleRead3Result> simpleRead3Results = null;
@@ -1209,9 +1207,9 @@ public class VirtuosoDb extends Db {
         }
     }
 
-    public static class SimpleRead4Handler implements OperationHandler<SimpleRead4, GraphDbConnectionState> {
+    public static class SimpleRead4Handler implements OperationHandler<SimpleRead4, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(SimpleRead4 sr4, GraphDbConnectionState graphDbConnectionState,
+        public void executeOperation(SimpleRead4 sr4, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(sr4.toString());
 
@@ -1240,7 +1238,7 @@ public class VirtuosoDb extends Db {
                     "} GROUP BY ?dstId " +
                     "ORDER BY DESC(?sumAmount) ASC(?dstId)";
 
-            GraphDbConnectionState.GraphDbClient client = graphDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             String result = client.execute(queryString);
 
             List<SimpleRead4Result> simpleRead4Results = null;
@@ -1254,9 +1252,9 @@ public class VirtuosoDb extends Db {
         }
     }
 
-    public static class SimpleRead5Handler implements OperationHandler<SimpleRead5, GraphDbConnectionState> {
+    public static class SimpleRead5Handler implements OperationHandler<SimpleRead5, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(SimpleRead5 sr5, GraphDbConnectionState graphDbConnectionState,
+        public void executeOperation(SimpleRead5 sr5, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(sr5.toString());
 
@@ -1285,7 +1283,7 @@ public class VirtuosoDb extends Db {
                     "BIND(STRAFTER(STR(?src), \"http://example.org/Account/\") AS ?srcId) " +
                     "} GROUP BY ?srcId "+
                     "ORDER BY DESC(?sumAmount) ASC(?srcId)";
-            GraphDbConnectionState.GraphDbClient client = graphDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             String result = client.execute(queryString);
 
             List<SimpleRead5Result> simpleRead5Results = null;
@@ -1299,9 +1297,9 @@ public class VirtuosoDb extends Db {
         }
     }
 
-    public static class SimpleRead6Handler implements OperationHandler<SimpleRead6, GraphDbConnectionState> {
+    public static class SimpleRead6Handler implements OperationHandler<SimpleRead6, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(SimpleRead6 sr6, GraphDbConnectionState graphDbConnectionState,
+        public void executeOperation(SimpleRead6 sr6, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(sr6.toString());
 
@@ -1312,7 +1310,7 @@ public class VirtuosoDb extends Db {
 
             String queryString = "PREFIX account: <http://example.org/Account/> " +
                     "             PREFIX ex: <http://example.org/>" +
-                    "             SELECT ?dstId" +      //EIGENTLICH COLLECT
+                    "             SELECT DISTINCT ?dstId" +      //EIGENTLICH COLLECT
                     "             WHERE{" +
                     "                 BIND(account:"+sr6.getId()+" AS ?src)  " +
                     "               ?blankNode rdf:subject ?mid ." +
@@ -1320,19 +1318,18 @@ public class VirtuosoDb extends Db {
                     "               ?blankNode rdf:object ?src .\n" +
                     "               ?blankNode ex:provenance ?occurrences1 ." +
                     "               ?occurrences1 ex:createTime ?edge1CreateTime ." +
-                    "               ?occurrences1 ex:amount ?edge1Amount . " +
-                    "FILTER(xsd:dateTime(\""+DATE_FORMAT.format(sr6.getStartTime())+"\")<?edge2CreateTime && ?edge2CreateTime<xsd:dateTime(\"" + DATE_FORMAT.format(sr6.getEndTime()) +"\")) " +
+                    "FILTER(xsd:dateTime(\""+DATE_FORMAT.format(sr6.getStartTime())+"\")<?edge1CreateTime && ?edge1CreateTime<xsd:dateTime(\"" + DATE_FORMAT.format(sr6.getEndTime()) +"\")) " +
                     "               ?blankNode2 rdf:subject ?mid ." +
                     "               ?blankNode2 rdf:predicate ex:transfer .\n" +
                     "               ?blankNode2 rdf:object ?dst .\n" +
                     "               ?blankNode2 ex:provenance ?occurrences2 ." +
                     "                 ?dst ex:isBlocked true ." +
                     "                 ?occurrences2 ex:createTime ?edge2CreateTime ." +
-                    "                 ?occurrences2 ex:amount ?edge1Amount . " +
-                    "BIND(STRAFTER(STR(?dst), \"http://example.org/Account/\") AS ?dstId) " +
+                    "FILTER(xsd:dateTime(\""+DATE_FORMAT.format(sr6.getStartTime())+"\")<?edge2CreateTime && ?edge2CreateTime<xsd:dateTime(\"" + DATE_FORMAT.format(sr6.getEndTime()) +"\")) " +
+                    "BIND(xsd:long(STRAFTER(STR(?dst), \"http://example.org/Account/\")) AS ?dstId) " +
                     "} "+
                     "ORDER BY ASC(?dstId)";
-            GraphDbConnectionState.GraphDbClient client = graphDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             String result = client.execute(queryString);
 
             List<SimpleRead6Result> simpleRead6Results = null;
@@ -1348,7 +1345,7 @@ public class VirtuosoDb extends Db {
 
     public static class Write1Handler implements OperationHandler<Write1, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(Write1 w1, VirtuosoDbConnectionState VirtuosoDbConnectionState,
+        public void executeOperation(Write1 w1, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(w1.toString());
 
@@ -1363,7 +1360,7 @@ public class VirtuosoDb extends Db {
                     "}";
 
 
-            VirtuosoDbConnectionState.VirtuosoDbClient client = VirtuosoDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             client.executeWrite(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w1);
         }
@@ -1371,7 +1368,7 @@ public class VirtuosoDb extends Db {
 
     public static class Write2Handler implements OperationHandler<Write2, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(Write2 w2, VirtuosoDbConnectionState VirtuosoDbConnectionState,
+        public void executeOperation(Write2 w2, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(w2.toString());
 
@@ -1385,7 +1382,7 @@ public class VirtuosoDb extends Db {
                     "ex:createTime \"" + DATE_FORMAT.format(new Date()) + "\"^^<http://www.w3.org/2001/XMLSchema#dateTime> ." +
                     "}";
 
-            VirtuosoDbConnectionState.VirtuosoDbClient client = VirtuosoDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             client.executeWrite(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w2);
         }
@@ -1393,7 +1390,7 @@ public class VirtuosoDb extends Db {
 
     public static class Write3Handler implements OperationHandler<Write3, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(Write3 w3, VirtuosoDbConnectionState VirtuosoDbConnectionState,
+        public void executeOperation(Write3 w3, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(w3.toString());
 
@@ -1406,7 +1403,7 @@ public class VirtuosoDb extends Db {
                     "ex:createTime \"" + DATE_FORMAT.format(new Date()) + "\"^^<http://www.w3.org/2001/XMLSchema#dateTime> ." +
                     "}";
 
-            VirtuosoDbConnectionState.VirtuosoDbClient client = VirtuosoDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             client.executeWrite(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w3);
         }
@@ -1414,7 +1411,7 @@ public class VirtuosoDb extends Db {
 
     public static class Write4Handler implements OperationHandler<Write4, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(Write4 w4, VirtuosoDbConnectionState VirtuosoDbConnectionState,
+        public void executeOperation(Write4 w4, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(w4.toString());
 
@@ -1426,7 +1423,7 @@ public class VirtuosoDb extends Db {
                     "                     ex:createTime \""+ DATE_FORMAT.format(w4.getTime()) +"\"^^<http://www.w3.org/2001/XMLSchema#dateTime> ] . " +
                     "            }";
 
-            VirtuosoDbConnectionState.VirtuosoDbClient client = VirtuosoDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             client.executeWrite(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w4);
         }
@@ -1434,7 +1431,7 @@ public class VirtuosoDb extends Db {
 
     public static class Write5Handler implements OperationHandler<Write5, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(Write5 w5, VirtuosoDbConnectionState VirtuosoDbConnectionState,
+        public void executeOperation(Write5 w5, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(w5.toString());
 
@@ -1449,7 +1446,7 @@ public class VirtuosoDb extends Db {
                     "            }";
 
 
-            VirtuosoDbConnectionState.VirtuosoDbClient client = VirtuosoDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             client.executeWrite(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w5);
         }
@@ -1457,7 +1454,7 @@ public class VirtuosoDb extends Db {
 
     public static class Write6Handler implements OperationHandler<Write6, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(Write6 w6, VirtuosoDbConnectionState VirtuosoDbConnectionState,
+        public void executeOperation(Write6 w6, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(w6.toString());
 
@@ -1471,7 +1468,7 @@ public class VirtuosoDb extends Db {
                     "                     ex:createTime \""+ DATE_FORMAT.format(w6.getTime()) +"\"^^<http://www.w3.org/2001/XMLSchema#dateTime> ] . " +
                     "            }";
 
-            VirtuosoDbConnectionState.VirtuosoDbClient client = VirtuosoDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             client.executeWrite(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w6);
         }
@@ -1479,7 +1476,7 @@ public class VirtuosoDb extends Db {
 
     public static class Write7Handler implements OperationHandler<Write7, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(Write7 w7, VirtuosoDbConnectionState VirtuosoDbConnectionState,
+        public void executeOperation(Write7 w7, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(w7.toString());
 
@@ -1494,7 +1491,7 @@ public class VirtuosoDb extends Db {
                     "            }";
 
 
-            VirtuosoDbConnectionState.VirtuosoDbClient client = VirtuosoDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             client.executeWrite(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w7);
         }
@@ -1502,7 +1499,7 @@ public class VirtuosoDb extends Db {
 
     public static class Write8Handler implements OperationHandler<Write8, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(Write8 w8, VirtuosoDbConnectionState VirtuosoDbConnectionState,
+        public void executeOperation(Write8 w8, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(w8.toString());
 
@@ -1515,7 +1512,7 @@ public class VirtuosoDb extends Db {
                     "                     ex:createTime \""+ DATE_FORMAT.format(w8.getTime()) +"\"^^<http://www.w3.org/2001/XMLSchema#dateTime> ] . " +
                     "            }";
 
-            VirtuosoDbConnectionState.VirtuosoDbClient client = VirtuosoDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             client.executeWrite(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w8);
         }
@@ -1523,7 +1520,7 @@ public class VirtuosoDb extends Db {
 
     public static class Write9Handler implements OperationHandler<Write9, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(Write9 w9, VirtuosoDbConnectionState VirtuosoDbConnectionState,
+        public void executeOperation(Write9 w9, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(w9.toString());
 
@@ -1537,7 +1534,7 @@ public class VirtuosoDb extends Db {
                     "            }";
 
 
-            VirtuosoDbConnectionState.VirtuosoDbClient client = VirtuosoDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             client.executeWrite(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w9);
         }
@@ -1545,7 +1542,7 @@ public class VirtuosoDb extends Db {
 
     public static class Write10Handler implements OperationHandler<Write10, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(Write10 w10, VirtuosoDbConnectionState VirtuosoDbConnectionState,
+        public void executeOperation(Write10 w10, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(w10.toString());
 
@@ -1561,7 +1558,7 @@ public class VirtuosoDb extends Db {
                     "                     ex:createTime \""+ DATE_FORMAT.format(w10.getTime()) +"\"^^<http://www.w3.org/2001/XMLSchema#dateTime> ] . " +
                     "            }";
 
-            VirtuosoDbConnectionState.VirtuosoDbClient client = VirtuosoDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             client.executeWrite(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w10);
         }
@@ -1569,7 +1566,7 @@ public class VirtuosoDb extends Db {
 
     public static class Write11Handler implements OperationHandler<Write11, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(Write11 w11, VirtuosoDbConnectionState VirtuosoDbConnectionState,
+        public void executeOperation(Write11 w11, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(w11.toString());
 
@@ -1582,7 +1579,7 @@ public class VirtuosoDb extends Db {
                     "            }";
 
 
-            VirtuosoDbConnectionState.VirtuosoDbClient client = VirtuosoDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             client.executeWrite(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w11);
         }
@@ -1590,7 +1587,7 @@ public class VirtuosoDb extends Db {
 
     public static class Write12Handler implements OperationHandler<Write12, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(Write12 w12, VirtuosoDbConnectionState VirtuosoDbConnectionState,
+        public void executeOperation(Write12 w12, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(w12.toString());
 
@@ -1603,7 +1600,7 @@ public class VirtuosoDb extends Db {
                     "                     ex:createTime \""+ DATE_FORMAT.format(w12.getTime()) +"\"^^<http://www.w3.org/2001/XMLSchema#dateTime> ] . " +
                     "            }";
 
-            VirtuosoDbConnectionState.VirtuosoDbClient client = VirtuosoDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             client.executeWrite(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w12);
         }
@@ -1611,7 +1608,7 @@ public class VirtuosoDb extends Db {
 
     public static class Write13Handler implements OperationHandler<Write13, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(Write13 w13, VirtuosoDbConnectionState VirtuosoDbConnectionState,
+        public void executeOperation(Write13 w13, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(w13.toString());
 
@@ -1624,7 +1621,7 @@ public class VirtuosoDb extends Db {
                     "                     ex:createTime \""+ DATE_FORMAT.format(w13.getTime()) +"\"^^<http://www.w3.org/2001/XMLSchema#dateTime> ] . " +
                     "            }";
 
-            VirtuosoDbConnectionState.VirtuosoDbClient client = VirtuosoDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             client.executeWrite(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w13);
         }
@@ -1632,7 +1629,7 @@ public class VirtuosoDb extends Db {
 
     public static class Write14Handler implements OperationHandler<Write14, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(Write14 w14, VirtuosoDbConnectionState VirtuosoDbConnectionState,
+        public void executeOperation(Write14 w14, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(w14.toString());
 
@@ -1645,7 +1642,7 @@ public class VirtuosoDb extends Db {
                     "                     ex:createTime \""+ DATE_FORMAT.format(w14.getTime()) +"\"^^<http://www.w3.org/2001/XMLSchema#dateTime> ] . " +
                     "            }";
 
-            VirtuosoDbConnectionState.VirtuosoDbClient client = VirtuosoDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             client.executeWrite(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w14);
         }
@@ -1653,7 +1650,7 @@ public class VirtuosoDb extends Db {
 
     public static class Write15Handler implements OperationHandler<Write15, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(Write15 w15, VirtuosoDbConnectionState VirtuosoDbConnectionState,
+        public void executeOperation(Write15 w15, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(w15.toString());
 
@@ -1667,7 +1664,7 @@ public class VirtuosoDb extends Db {
                     "            }";
 
 
-            VirtuosoDbConnectionState.VirtuosoDbClient client = VirtuosoDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             client.executeWrite(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w15);
         }
@@ -1675,7 +1672,7 @@ public class VirtuosoDb extends Db {
 
     public static class Write16Handler implements OperationHandler<Write16, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(Write16 w16, VirtuosoDbConnectionState VirtuosoDbConnectionState,
+        public void executeOperation(Write16 w16, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(w16.toString());
 
@@ -1691,7 +1688,7 @@ public class VirtuosoDb extends Db {
                     "                     ex:createTime \""+ DATE_FORMAT.format(w16.getTime()) +"\"^^<http://www.w3.org/2001/XMLSchema#dateTime> ] . " +
                     "            }";
 
-            VirtuosoDbConnectionState.VirtuosoDbClient client = VirtuosoDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             client.executeWrite(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w16);
         }
@@ -1699,7 +1696,7 @@ public class VirtuosoDb extends Db {
 
     public static class Write17Handler implements OperationHandler<Write17, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(Write17 w17, VirtuosoDbConnectionState VirtuosoDbConnectionState,
+        public void executeOperation(Write17 w17, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(w17.toString());
 
@@ -1773,7 +1770,7 @@ public class VirtuosoDb extends Db {
             }
              */
 
-            VirtuosoDbConnectionState.VirtuosoDbClient client = VirtuosoDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             client.executeWrite(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w17);
         }
@@ -1781,7 +1778,7 @@ public class VirtuosoDb extends Db {
 
     public static class Write18Handler implements OperationHandler<Write18, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(Write18 w18, VirtuosoDbConnectionState VirtuosoDbConnectionState,
+        public void executeOperation(Write18 w18, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(w18.toString());
 
@@ -1792,7 +1789,7 @@ public class VirtuosoDb extends Db {
             String queryString = "MATCH (a:Account {accountId: $accountId}) " +
                     "SET a.isBlocked = true";
 
-            VirtuosoDbConnectionState.VirtuosoDbClient client = VirtuosoDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             client.executeWrite(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w18);
         }
@@ -1800,7 +1797,7 @@ public class VirtuosoDb extends Db {
 
     public static class Write19Handler implements OperationHandler<Write19, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(Write19 w19, VirtuosoDbConnectionState VirtuosoDbConnectionState,
+        public void executeOperation(Write19 w19, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(w19.toString());
 
@@ -1811,7 +1808,7 @@ public class VirtuosoDb extends Db {
             String queryString = "MATCH (p:Person {personId: $personId}) " +
                     "SET p.isBlocked = true";
 
-            VirtuosoDbConnectionState.VirtuosoDbClient client = VirtuosoDbConnectionState.client();
+            VirtuosoDbConnectionState.VirtuosoDbClient client = virtuosoDbConnectionState.client();
             client.executeWrite(queryString);
             resultReporter.report(0, LdbcNoResult.INSTANCE, w19);
         }
@@ -1819,7 +1816,7 @@ public class VirtuosoDb extends Db {
 
     public static class ReadWrite1Handler implements OperationHandler<ReadWrite1, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(ReadWrite1 rw1, VirtuosoDbConnectionState VirtuosoDbConnectionState,
+        public void executeOperation(ReadWrite1 rw1, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(rw1.toString());
             resultReporter.report(0, LdbcNoResult.INSTANCE, rw1);
@@ -1828,7 +1825,7 @@ public class VirtuosoDb extends Db {
 
     public static class ReadWrite2Handler implements OperationHandler<ReadWrite2, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(ReadWrite2 rw2, VirtuosoDbConnectionState VirtuosoDbConnectionState,
+        public void executeOperation(ReadWrite2 rw2, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
 
             resultReporter.report(0, LdbcNoResult.INSTANCE, rw2);
@@ -1837,7 +1834,7 @@ public class VirtuosoDb extends Db {
 
     public static class ReadWrite3Handler implements OperationHandler<ReadWrite3, VirtuosoDbConnectionState> {
         @Override
-        public void executeOperation(ReadWrite3 rw3, VirtuosoDbConnectionState VirtuosoDbConnectionState,
+        public void executeOperation(ReadWrite3 rw3, VirtuosoDbConnectionState virtuosoDbConnectionState,
                                      ResultReporter resultReporter) throws DbException {
             VirtuosoDb.logger.info(rw3.toString());
             resultReporter.report(0, LdbcNoResult.INSTANCE, rw3);

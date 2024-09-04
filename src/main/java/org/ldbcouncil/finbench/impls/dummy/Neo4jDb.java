@@ -114,7 +114,7 @@ public class Neo4jDb extends Db {
                     + "WHERE reduce(curr = head(ts), x IN tail(ts) | CASE WHEN curr < x THEN x ELSE localDateTime(\"9999-12-30T23:59:59\") END) <> localDateTime(\"9999-12-30T23:59:59\") \n "
                     + "AND all(e IN edge1 WHERE dateTime($start_time) < e.createTime < dateTime($end_time)) "
                     + "AND dateTime($start_time) < edge2.createTime < dateTime($end_time) "
-                    + "RETURN " +
+                    + "RETURN DISTINCT " +
                     "other.accountId AS otherId, " +
                     "length(p) AS accountDistance, " +
                     "medium.mediumId AS mediumId, " +
@@ -157,7 +157,7 @@ public class Neo4jDb extends Db {
                     "other IS NOT NULL AS otherExists  " +
                     "WHERE " +
                     "otherExists " +
-                    " AND reduce(curr = head(ts), x IN tail(ts) | CASE WHEN curr < x THEN x ELSE localDateTime(\"9999-12-30T23:59:59\") END) <> localDateTime(\"9999-12-30T23:59:59\") \n " +
+                    "AND reduce(curr = head(ts), x IN tail(ts) | CASE WHEN curr < x THEN x ELSE localDateTime(\"9999-12-30T23:59:59\") END) <> localDateTime(\"9999-12-30T23:59:59\") \n " +
                     "AND all(e IN edge2 WHERE dateTime($start_time) < e.createTime < dateTime($end_time)) " +
                     "AND dateTime($start_time) < edge3.createTime < dateTime($end_time) " +
                     "RETURN other.accountId AS otherId, " +
@@ -225,7 +225,7 @@ public class Neo4jDb extends Db {
 
             String queryString = "MATCH " +
                     "(src:Account {accountId: $id1})-[edge1:transfer]->(dst:Account {accountId: $id2}), " +
-                    "(dst)-[edge2:transfer]->(other:Account)-[edge3:transfer]->(src) " +                //changed src dst and direction so it matches cr4
+                    "(dst)-[edge3:transfer]->(other:Account)-[edge2:transfer]->(src) " +
                     "WHERE dateTime($start_time) < edge1.createTime < dateTime($end_time) " +
                     "AND dateTime($start_time) < edge2.createTime < dateTime($end_time) " +
                     "AND dateTime($start_time) < edge3.createTime < dateTime($end_time) " +
@@ -306,8 +306,8 @@ public class Neo4jDb extends Db {
                     "reduce(curr = head(ts), x IN tail(ts) | CASE WHEN curr < x THEN x " +
                     "ELSE localDateTime(\"9999-12-30T23:59:59\") END) <> localDateTime(\"9999-12-30T23:59:59\") \n " +
                     "AND all(e IN edge2 WHERE dateTime($start_time) < e.createTime < dateTime($end_time)) " +
-                    "RETURN [node in nodeList | node.accountId] AS path " +
-                    "ORDER BY length(p) DESC";
+                    "RETURN DISTINCT [node in nodeList | node.accountId] AS path " +
+                    "ORDER BY size(path) DESC";
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             String result = client.execute(queryString, queryParams);
@@ -382,11 +382,10 @@ public class Neo4jDb extends Db {
                     "                    AND edge1.amount > $threshold \n" +
                     "                    AND dateTime($start_time) < edge2.createTime < dateTime($end_time) \n" +
                     "                    AND edge2.amount > $threshold \n" +
-                    "WITH src, dst, " +
-                    "REDUCE(total = 0, account IN COLLECT(DISTINCT edge1) | total + account.amount) AS sumEdge1Amount, " +
+                    "WITH REDUCE(total = 0, account IN COLLECT(DISTINCT edge1) | total + account.amount) AS sumEdge1Amount, " +
                     "REDUCE(total = 0, account IN COLLECT(DISTINCT edge2) | total + account.amount) AS sumEdge2Amount,\n" +
-                    "       COUNT(src) AS numSrc,\n" +
-                    "       COUNT(dst) AS numDst\n" +
+                    "       COUNT(DISTINCT src) AS numSrc,\n" +
+                    "       COUNT(DISTINCT dst) AS numDst\n" +
                     "RETURN numSrc, numDst," +
                     "       CASE " +
                     "       WHEN sumEdge2Amount > 0 THEN ROUND(1000 * sumEdge1Amount / sumEdge2Amount) / 1000 " +
@@ -429,7 +428,7 @@ public class Neo4jDb extends Db {
                     "AND all(e IN edge234 WHERE dateTime($start_time) < e.createTime < dateTime($end_time)) " +
                     "AND reduce(curr = head(amts), x IN tail(amts) | CASE WHEN (curr <> -1) " +
                     "AND (x > curr*$threshold) THEN x ELSE -1 end) <> -1 " +
-                    "WITH loan, length(p)+1 AS minDistanceFromLoan, dst, sum(relationships(p)[-1].amount) AS inflow " +
+                    "WITH loan, length(p)+1 AS minDistanceFromLoan, dst, REDUCE(total = 0, edge IN COLLECT(DISTINCT relationships(p)[-1]) | total + edge.amount) AS inflow " +
                     "RETURN dst.accountId AS dstId, round(1000 * inflow/loan.loanAmount) / 1000 AS ratio, minDistanceFromLoan " +
                     "ORDER BY minDistanceFromLoan DESC, ratio DESC, dstId ASC";
 
@@ -555,7 +554,7 @@ public class Neo4jDb extends Db {
                     "MATCH (person)-[:apply]->(loan:Loan) " +
                     "RETURN " +
                     "(round(1000 * REDUCE(total = 0, loanA IN COLLECT(DISTINCT loan) | total + loanA.loanAmount))/1000) AS sumLoanAmount, " +        //ADDED ROUND
-                    "count(loan) AS numLoans";
+                    "count(DISTINCT loan) AS numLoans";
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             String result = client.execute(queryString, queryParams);
@@ -644,18 +643,24 @@ public class Neo4jDb extends Db {
             queryParams.put("start_time", DATE_FORMAT.format(sr2.getStartTime()));
             queryParams.put("end_time", DATE_FORMAT.format(sr2.getEndTime()));
 
-            String queryString = "MATCH (src:Account {accountId: $id}) " +
-                    "OPTIONAL MATCH (src)-[edge1:transfer]->(dst1:Account) " +
-                    "WHERE dateTime($start_time) < edge1.createTime < dateTime($end_time) " +
-                    "OPTIONAL MATCH (src)<-[edge2:transfer]-(dst2:Account) " +                      //CHANGED <- zu -
-                    "WHERE dateTime($start_time) < edge2.createTime < dateTime($end_time) " +
-                    "RETURN " +
-                    "(round(1000 * sum(edge1.amount))/1000) AS sumEdge1Amount, " +
-                    "(round(1000 * max(edge1.amount))/1000) AS maxEdge1Amount, " +
-                    "count(edge1) AS numEdge1, " +
-                    "(round(1000 * sum(edge2.amount))/1000) AS sumEdge2Amount, " +
-                    "(round(1000 * max(edge2.amount))/1000) AS maxEdge2Amount, " +
-                    "count(edge2) AS numEdge2";
+            String queryString = "MATCH (src:Account {accountId: $id}) \n" +
+                    "OPTIONAL MATCH (src)-[edge1:transfer]->(dst1:Account) \n" +
+                    "WHERE dateTime($start_time) < edge1.createTime < dateTime($end_time) \n" +
+                    "OPTIONAL MATCH (src)<-[edge2:transfer]-(dst2:Account) \n" +
+                    "WHERE dateTime($start_time) < edge2.createTime < dateTime($end_time) \n" +
+                    "RETURN \n" +
+                    "    (round(1000 * REDUCE(total = 0, edge IN COLLECT(DISTINCT edge1) | total + edge.amount))/1000) AS sumEdge1Amount, \n" +
+                    "    CASE \n" +
+                    "        WHEN max(edge1.amount) IS NOT NULL THEN round(1000 * max(edge1.amount))/1000 \n" +
+                    "        ELSE -1 \n" +
+                    "    END AS maxEdge1Amount, \n" +
+                    "    count(DISTINCT edge1) AS numEdge1, \n" +
+                    "    (round(1000 * REDUCE(total = 0, edge IN COLLECT(DISTINCT edge2) | total + edge.amount))/1000) AS sumEdge2Amount, \n" +
+                    "    CASE \n" +
+                    "        WHEN max(edge2.amount) IS NOT NULL THEN round(1000 * max(edge2.amount))/1000 \n" +
+                    "        ELSE -1 \n" +
+                    "    END AS maxEdge2Amount, \n" +
+                    "    count(DISTINCT edge2) AS numEdge2";
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             String result = client.execute(queryString, queryParams);
@@ -691,7 +696,7 @@ public class Neo4jDb extends Db {
                     "RETURN " +
                     "CASE " +
                     "WHEN count(edge2) > 0 THEN " +
-                    "round(1000*count(edge1)/count(edge2)) / 1000 " +
+                    "round(1000*count(DISTINCT edge1)/count(DISTINCT edge2)) / 1000 " +
                     "ELSE -1 " +
                     "END AS blockRatio";
 

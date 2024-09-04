@@ -111,7 +111,7 @@ public class MemgraphDb extends Db {
                     "ELSE localDateTime(\"9999-12-30T23:59:59\") end) <> localDateTime(\"9999-12-30T23:59:59\") "
                     + "AND all(e IN edge1 WHERE localDateTime($start_time) < e.createTime < localDateTime($end_time)) "
                     + "AND localDateTime($start_time) < edge2.createTime < localDateTime($end_time) "
-                    + "RETURN " +
+                    + "RETURN DISTINCT " +
                     "other.accountId AS otherId, " +
                     "size(p) AS accountDistance, " +
                     "medium.mediumId AS mediumId, " +
@@ -235,7 +235,7 @@ public class MemgraphDb extends Db {
 
             String queryString = "MATCH " +
                     "(src:Account {accountId: $id1})-[edge1:transfer]->(dst:Account {accountId: $id2}), " +
-                    "(dst)-[edge2:transfer]->(other:Account)-[edge3:transfer]->(src) " +                //changed src dst and direction so it matches cr4
+                    "(dst)-[edge3:transfer]->(other:Account)-[edge2:transfer]->(src) " +                //changed src dst and direction so it matches cr4
                     "WHERE localDateTime($start_time) < edge1.createTime < localDateTime($end_time) " +
                     "AND localDateTime($start_time) < edge2.createTime < localDateTime($end_time) " +
                     "AND localDateTime($start_time) < edge3.createTime < localDateTime($end_time) " +
@@ -296,8 +296,8 @@ public class MemgraphDb extends Db {
                     "reduce(curr = head(ts), x IN tail(ts) | CASE WHEN curr < x THEN x " +
                     "ELSE localDateTime($last_time) end) <> localDateTime($last_time) " +
                     "AND all(e IN edge2 WHERE localDateTime($start_time) < e.createTime < localDateTime($end_time)) " +
-                    "RETURN extract(node in nodeList | node.accountId) AS path " +
-                    "ORDER BY size(p) DESC";
+                    "RETURN DISTINCT extract(node in nodeList | node.accountId) AS path " +
+                    "ORDER BY size(path) DESC";
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             String result = client.execute(queryString, queryParams);
@@ -372,11 +372,10 @@ public class MemgraphDb extends Db {
                     "                    AND edge1.amount > $threshold \n" +
                     "                    AND localDateTime($start_time) < edge2.createTime < localDateTime($end_time) \n" +
                     "                    AND edge2.amount > $threshold \n" +
-                    "WITH src, dst, " +
-                    "REDUCE(total = 0, account IN COLLECT(DISTINCT edge1) | total + account.amount) AS sumEdge1Amount, " +
+                    "WITH REDUCE(total = 0, account IN COLLECT(DISTINCT edge1) | total + account.amount) AS sumEdge1Amount, " +
                     "REDUCE(total = 0, account IN COLLECT(DISTINCT edge2) | total + account.amount) AS sumEdge2Amount,\n" +
-                    "       COUNT(src) AS numSrc,\n" +
-                    "       COUNT(dst) AS numDst\n" +
+                    "       COUNT(DISTINCT src) AS numSrc,\n" +
+                    "       COUNT(DISTINCT dst) AS numDst\n" +
                     "RETURN numSrc, numDst," +
                     "       CASE " +
                     "       WHEN sumEdge2Amount > 0 THEN ROUND(1000 * sumEdge1Amount / sumEdge2Amount) / 1000 " +
@@ -419,7 +418,7 @@ public class MemgraphDb extends Db {
                     "AND all(e IN edge234 WHERE localDateTime($start_time) < e.createTime < localDateTime($end_time)) " +
                     "AND reduce(curr = head(amts), x IN tail(amts) | CASE WHEN (curr <> -1) " +
                     "AND (x > curr*$threshold) THEN x ELSE -1 end) <> -1 " +
-                    "WITH loan, size(p)+1 AS minDistanceFromLoan, dst, sum(last(amts)) AS inflow " +
+                    "WITH loan, size(p)+1 AS minDistanceFromLoan, dst, REDUCE(total = 0, amount IN COLLECT(DISTINCT last(amts)) | total + amount) AS inflow " +
                     "RETURN dst.accountId AS dstId, round(1000 * inflow/loan.loanAmount) / 1000 AS ratio, minDistanceFromLoan " +
                     "ORDER BY minDistanceFromLoan DESC, ratio DESC, size(dstId) ASC, dstId ASC"; //WORK AROUND SORT BECAUSE ID IS A STRING
 
@@ -556,7 +555,7 @@ public class MemgraphDb extends Db {
                     "MATCH (person)-[:apply]->(loan:Loan) " +
                     "RETURN " +
                     "(round(1000 * REDUCE(total = 0, loanA IN COLLECT(DISTINCT loan) | total + loanA.loanAmount))/1000) AS sumLoanAmount, " +
-                    "count(loan) AS numLoans";
+                    "count(DISTINCT loan) AS numLoans";
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             String result = client.execute(queryString, queryParams);
@@ -619,20 +618,6 @@ public class MemgraphDb extends Db {
             String queryString = "MATCH (account:Account {accountId: $id}) " +
                     "RETURN account.createTime AS createTime, account.isBlocked AS isBlocked, account.accountType AS type";
 
-            /*
-            PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-            PREFIX ex: <http://example.org/>
-
-            SELECT ?account1 ?a ?b
-            WHERE {
-
-            ?account1 rdf:type ex:Account .
-                FILTER(?account1 = ex:4638144666238200012)
-            ?account1   ex:createTime ?a ;
-                        ex:isBlocked ?b .
-            }
-
-             */
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             String result = client.execute(queryString, queryParams);
 
@@ -659,18 +644,29 @@ public class MemgraphDb extends Db {
             queryParams.put("start_time", DATE_FORMAT.format(sr2.getStartTime()));
             queryParams.put("end_time", DATE_FORMAT.format(sr2.getEndTime()));
 
-            String queryString = "MATCH (src:Account {accountId: $id}) " +
-                    "OPTIONAL MATCH (src)-[edge1:transfer]->(dst1:Account) " +
-                    "WHERE localDateTime($start_time) < edge1.createTime < localDateTime($end_time) " +
-                    "OPTIONAL MATCH (src)<-[edge2:transfer]-(dst2:Account) " +
-                    "WHERE localDateTime($start_time) < edge2.createTime < localDateTime($end_time) " +
-                    "RETURN " +
-                    "(round(1000 * sum(edge1.amount))/1000) AS sumEdge1Amount, " +
-                    "(round(1000 * max(edge1.amount))/1000) AS maxEdge1Amount, " +
-                    "count(edge1) AS numEdge1, " +
-                    "(round(1000 * sum(edge2.amount))/1000) AS sumEdge2Amount, " +
-                    "(round(1000 * max(edge2.amount))/1000) AS maxEdge2Amount, " +
-                    "count(edge2) AS numEdge2";
+            String queryString = "MATCH (src:Account {accountId: $id}) \n" +
+                    "OPTIONAL MATCH (src)-[edge1:transfer]->(dst1:Account) \n" +
+                    "WHERE localDateTime($start_time) < edge1.createTime < localDateTime($end_time) \n" +
+                    "OPTIONAL MATCH (src)<-[edge2:transfer]-(dst2:Account) \n" +
+                    "WHERE localDateTime($start_time) < edge2.createTime < localDateTime($end_time) \n" +
+                    "\n" +
+                    "                    WITH COLLECT(DISTINCT edge1) AS edges1, \n" +
+                    "                        COLLECT(DISTINCT edge2) AS edges2,\n" +
+                    "                        max(edge1.amount) AS maxEdge1AmountRaw, \n" +
+                    "                        max(edge2.amount) AS maxEdge2AmountRaw\n" +
+                    "                    RETURN \n" +
+                    "                        (round(1000 * REDUCE(total = 0, edge IN edges1 | total + edge.amount))/1000) AS sumEdge1Amount, \n" +
+                    "                        CASE \n" +
+                    "                            WHEN maxEdge1AmountRaw IS NOT NULL THEN round(1000 * maxEdge1AmountRaw)/1000 \n" +
+                    "                            ELSE -1 \n" +
+                    "                        END AS maxEdge1Amount, \n" +
+                    "                        size(edges1) AS numEdge1, \n" +
+                    "                        (round(1000 * REDUCE(total = 0, edge IN edges2 | total + edge.amount))/1000) AS sumEdge2Amount, \n" +
+                    "                        CASE \n" +
+                    "                            WHEN maxEdge2AmountRaw IS NOT NULL THEN round(1000 * maxEdge2AmountRaw)/1000 \n" +
+                    "                            ELSE -1 \n" +
+                    "                        END AS maxEdge2Amount, \n" +
+                    "                        size(edges2) AS numEdge2";
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             String result = client.execute(queryString, queryParams);
@@ -703,7 +699,7 @@ public class MemgraphDb extends Db {
                     "OPTIONAL MATCH (blockedSrc:Account {isBlocked: true})-[edge1:transfer]->(dst) " +
                     "WHERE localDateTime($start_time) < edge1.createTime < localDateTime($end_time) " +
                     "AND edge1.amount > $threshold " +
-                    "WITH count(edge1) AS blockedTransfers, count(edge2) AS totalTransfers " +
+                    "WITH count(DISTINCT edge1) AS blockedTransfers, count(DISTINCT edge2) AS totalTransfers " +
                     "RETURN CASE " +
                     "    WHEN totalTransfers > 0 THEN " +
                     "        round(1000 * blockedTransfers / totalTransfers) / 1000 " +
