@@ -840,12 +840,12 @@ public class MemgraphDb extends Db {
             /*
             String queryString = "MERGE (p:Person {personId: $personId})" +
                     "ON CREATE SET p.personName = $personName, " +
-                    "p.isBlocked = $isBlocked, p.createTime = dateTime($createTime)";
+                    "p.isBlocked = $isBlocked, p.createTime = localDateTime($createTime)";
 
 
              */
             String queryString = "CREATE (:Person {personId: $personId, personName: $personName, " +
-                    "                    isBlocked: $isBlocked, createTime: dateTime($createTime)})";
+                    "                    isBlocked: $isBlocked, createTime: localDateTime($createTime)})";
 
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
@@ -870,12 +870,12 @@ public class MemgraphDb extends Db {
             /*
             String queryString = "MERGE (c:Company {companyId: $companyId})" +
                     "ON CREATE SET c.companyName = $companyName, " +
-                    "c.createTime = dateTime($createTime), c.isBlocked = $isBlocked";
+                    "c.createTime = localDateTime($createTime), c.isBlocked = $isBlocked";
 
 
              */
             String queryString = "CREATE (:Company {companyId: $companyId, companyName: $companyName, " +
-                    "                    isBlocked: $isBlocked, createTime: dateTime($createTime)})";
+                    "                    isBlocked: $isBlocked, createTime: localDateTime($createTime)})";
 
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
@@ -898,12 +898,12 @@ public class MemgraphDb extends Db {
 
             /*
             String queryString = "MERGE (m:Medium {mediumId: $mediumId})" +
-                    "ON CREATE SET m.mediumType = $mediumType, m.createTime = dateTime($createTime)";
+                    "ON CREATE SET m.mediumType = $mediumType, m.createTime = localDateTime($createTime)";
 
 
              */
             String queryString = "CREATE (:Medium {mediumId: $mediumId, mediumType: $mediumType, " +
-                    "                    createTime: dateTime($createTime)})";
+                    "                    createTime: localDateTime($createTime)})";
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             client.execute(queryString, queryParams);
@@ -954,7 +954,7 @@ public class MemgraphDb extends Db {
             String queryString = "MATCH (c:Company {companyId: $companyId}) " +
                     "CREATE (c)-[:own {createTime: $time}]->" +
                     "(:Account {accountId: $accountId, " +
-                    "createTime: dateTime($time), isBlocked: $accountBlocked, type: $accountType})";
+                    "createTime: localDateTime($time), isBlocked: $accountBlocked, type: $accountType})";
 
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
@@ -981,13 +981,13 @@ public class MemgraphDb extends Db {
             String queryString = "MATCH (p:Person {personId: $personId}) " +
                     "MERGE (l:Loan {loanId: $loanId}) " +
                     "SET l.loanAmount = $loanAmount, " +
-                    "l.balance = $balance, l.createTime = dateTime($time) " +
-                    "CREATE (l)<-[:apply {createTime: dateTime($time)}]-(p)";
+                    "l.balance = $balance, l.createTime = localDateTime($time) " +
+                    "CREATE (l)<-[:apply {createTime: localDateTime($time)}]-(p)";
 
              */
             String queryString = "MATCH (p:Person {personId: $personId}) " +
-                    "CREATE (l:Loan {loanId: $loanId, loanAmount: $loanAmount, balance: $balance, createTime: dateTime($time)}) " +
-                    "CREATE (l)<-[:apply {createTime: dateTime($time)}]-(p)";
+                    "CREATE (l:Loan {loanId: $loanId, loanAmount: $loanAmount, balance: $balance, createTime: localDateTime($time)}) " +
+                    "CREATE (l)<-[:apply {createTime: localDateTime($time)}]-(p)";
 
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
@@ -1014,13 +1014,13 @@ public class MemgraphDb extends Db {
             String queryString = "MATCH (c:Company {companyId: $companyId}) " +
                     "MERGE (l:Loan {loanId: $loanId}) " +
                     "SET l.loanAmount = $loanAmount, " +
-                    "l.balance = $balance, l.createTime = dateTime($time) " +
-                    "CREATE (l)<-[:apply {createTime: dateTime($time)}]-(c)";
+                    "l.balance = $balance, l.createTime = localDateTime($time) " +
+                    "CREATE (l)<-[:apply {createTime: localDateTime($time)}]-(c)";
              */
 
             String queryString = "MATCH (c:Company {companyId: $companyId}) " +
-                    "CREATE (l:Loan {loanId: $loanId, loanAmount: $loanAmount, balance: $balance, createTime: dateTime($time)}) " +
-                    "CREATE (l)<-[:apply {createTime: dateTime($time)}]-(c)";
+                    "CREATE (l:Loan {loanId: $loanId, loanAmount: $loanAmount, balance: $balance, createTime: localDateTime($time)}) " +
+                    "CREATE (l)<-[:apply {createTime: localDateTime($time)}]-(c)";
 
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
