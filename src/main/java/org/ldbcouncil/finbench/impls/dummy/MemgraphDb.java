@@ -1333,6 +1333,11 @@ public class MemgraphDb extends Db {
 
                 Transaction tx = client.startTransaction(write12String, queryParamsW12);
 
+                if(!tx.isOpen()){
+                    resultReporter.report(0, LdbcNoResult.INSTANCE, rw1);
+                    return;
+                }
+
                 String complexRead4String = "MATCH " +
                         "(src:Account {accountId: $id1})-[edge1:transfer]->(dst:Account {accountId: $id2}), " +
                         "(dst)-[edge2:transfer]->(other:Account)-[edge3:transfer]->(src) " +                //changed src dst and direction so it matches cr4
@@ -1432,6 +1437,11 @@ public class MemgraphDb extends Db {
 
                 Transaction tx = client.startTransaction(write12String, queryParamsW12);
 
+                if(!tx.isOpen()){
+                    resultReporter.report(0, LdbcNoResult.INSTANCE, rw2);
+                    return;
+                }
+
                 List<Float> ratios = new ArrayList<>();
 
                 for(String id: new String[]{rw2.getSrcId()+"", rw2.getDstId()+""}) {
@@ -1526,6 +1536,10 @@ public class MemgraphDb extends Db {
 
                 Transaction tx = client.startTransaction(write10String, queryParamsW10);
 
+                if(!tx.isOpen()){
+                    resultReporter.report(0, LdbcNoResult.INSTANCE, rw3);
+                    return;
+                }
                 String complexRead11String = "MATCH path=(p1:Person {personId: $id})-[:guarantee*]->(pX:Person) " +
                         "WHERE all(e IN relationships(path) WHERE localDateTime($start_time) < e.createTime < localDateTime($end_time)) " +
                         "UNWIND nodes(path)[1..] AS person " +
