@@ -223,54 +223,24 @@ public class Neo4jDb extends Db {
             queryParams.put("start_time", DATE_FORMAT.format(cr4.getStartTime()));
             queryParams.put("end_time", DATE_FORMAT.format(cr4.getEndTime()));
 
-            String queryString = "MATCH " +
-                    "(src:Account {accountId: $id1})-[edge1:transfer]->(dst:Account {accountId: $id2}), " +
-                    "(dst)-[edge3:transfer]->(other:Account)-[edge2:transfer]->(src) " +
+            String queryString ="MATCH \n" +
+                    "    (src:Account {accountId: $id1})-[edge1:transfer]->(dst:Account {accountId: $id2}), \n" +
+                    "    (dst)-[edge3:transfer]->(other:Account)-[edge2:transfer]->(src) \n" +
                     "WHERE dateTime($start_time) < edge1.createTime < dateTime($end_time) " +
                     "AND dateTime($start_time) < edge2.createTime < dateTime($end_time) " +
                     "AND dateTime($start_time) < edge3.createTime < dateTime($end_time) " +
                     "WITH \n" +
-                    "    other.accountId AS otherId,\n" +
-                    "    count(DISTINCT edge2) AS numEdge2, \n" +
-                    "    (round(1000 * (REDUCE(total = 0, edge IN COLLECT(DISTINCT edge2) | total + edge.amount))) / 1000) AS sumEdge2Amount,\n" +
-                    "    round(1000 * max(edge2.amount)) / 1000 AS maxEdge2Amount,\n" +
+                    "    other.accountId as otherId,\n" +
                     "    count(DISTINCT edge3) AS numEdge3, \n" +
-                    "    (round(1000 * (REDUCE(total = 0, edge IN COLLECT(DISTINCT edge3) | total + edge.amount))) / 1000) AS sumEdge3Amount,\n" +
-                    "    round(1000 * max(edge3.amount)) / 1000 AS maxEdge3Amount\n" +
-                    "ORDER BY \n" +
-                    "    sumEdge2Amount + sumEdge3Amount DESC\n" +
-                    "WITH \n" +
-                    "    collect({\n" +
-                    "        otherId: otherId, \n" +
-                    "        numEdge2: numEdge2, \n" +
-                    "        sumEdge2Amount: sumEdge2Amount, \n" +
-                    "        maxEdge2Amount: maxEdge2Amount, \n" +
-                    "        numEdge3: numEdge3, \n" +
-                    "        sumEdge3Amount: sumEdge3Amount, \n" +
-                    "        maxEdge3Amount: maxEdge3Amount\n" +
-                    "    }) AS results\n" +
-                    "WITH \n" +
-                    "    coalesce(head(results), {\n" +
-                    "        otherId: -1, \n" +
-                    "        numEdge2: 0, \n" +
-                    "        sumEdge2Amount: 0, \n" +
-                    "        maxEdge2Amount: 0, \n" +
-                    "        numEdge3: 0, \n" +
-                    "        sumEdge3Amount: 0, \n" +
-                    "        maxEdge3Amount: 0\n" +
-                    "    }) AS top\n" +
-                    "RETURN \n" +
-                    "    top.otherId AS otherId, \n" +
-                    "    top.numEdge2 AS numEdge2,  \n" +
-                    "    top.sumEdge2Amount AS sumEdge2Amount, \n" +
-                    "    top.maxEdge2Amount AS maxEdge2Amount, \n" +
-                    "    top.numEdge3 AS numEdge3, \n" +
-                    "    top.sumEdge3Amount AS sumEdge3Amount, \n" +
-                    "    top.maxEdge3Amount AS maxEdge3Amount\n" +
-                    "ORDER BY \n" +
-                    "    sumEdge2Amount DESC, \n" +
-                    "    sumEdge3Amount DESC, \n" +
-                    "    otherId ASC;\n";
+                    "    round(1000 * sum(DISTINCT edge3.amount)) / 1000 AS sumEdge3Amount,\n" +
+                    "    round(1000 * max(edge3.amount)) / 1000 AS maxEdge3Amount,\n" +
+                    "    count(DISTINCT edge2) AS numEdge2, \n" +
+                    "    round(1000 * sum(DISTINCT edge2.amount)) / 1000 AS sumEdge2Amount,\n" +
+                    "    round(1000 * max(edge2.amount)) / 1000 AS maxEdge2Amount\n" +
+                    "// Optional match for outgoing transfers from dst to other\n" +
+                    "RETURN otherId, numEdge2, sumEdge2Amount,maxEdge2Amount, \n" +
+                    "     numEdge3, sumEdge3Amount, maxEdge3Amount\n" +
+                    "ORDER BY sumEdge2Amount DESC,sumEdge3Amount DESC, otherId ASC;\n";
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             String result = client.execute(queryString, queryParams);
@@ -342,8 +312,8 @@ public class Neo4jDb extends Db {
                     "  AND dateTime($start_time) < edge2.createTime < dateTime($end_time) \n" +
                     "  AND edge2.amount > $threshold2 \n" +
                     "WITH mid, count(edge1) AS transferCount, " +
-                    "(round(1000 * sum(edge1.amount))/1000) AS sumEdge1Amount, " +           //ADDED ROUND
-                    "(round(1000 * (REDUCE(total = 0, account IN COLLECT(DISTINCT edge2) | total + account.amount)))/1000) AS sumEdge2Amount " +
+                    "(round(1000 * REDUCE(total = 0, edge IN COLLECT(DISTINCT edge1) | total + edge.amount))/1000) AS sumEdge1Amount, " +           //ADDED ROUND
+                    "(round(1000 * (REDUCE(total = 0, edge IN COLLECT(DISTINCT edge2) | total + edge.amount)))/1000) AS sumEdge2Amount " +
                     "WHERE transferCount > 3 " +
                     "RETURN " +
                     "  mid.accountId AS midId, " +
@@ -383,8 +353,12 @@ public class Neo4jDb extends Db {
                     "                    AND dateTime($start_time) < edge2.createTime < dateTime($end_time) \n" +
                     "                    AND edge2.amount > $threshold \n" +
                     "WITH REDUCE(total = 0, account IN COLLECT(DISTINCT edge1) | total + account.amount) AS sumEdge1Amount, " +
-                    "REDUCE(total = 0, account IN COLLECT(DISTINCT edge2) | total + account.amount) AS sumEdge2Amount,\n" +
-                    "       COUNT(DISTINCT src) AS numSrc,\n" +
+                    "       COUNT(DISTINCT src) AS numSrc\n" +
+                    "OPTIONAL MATCH (mid:Account {accountId: $id})-[edge2:transfer]->(dst:Account)\n" +
+                    "WHERE dateTime($start_time) < edge2.createTime < dateTime($end_time) \n" +
+                    "                    AND edge2.amount > $threshold \n" +
+                    "WITH sumEdge1Amount, numSrc," +
+                    "REDUCE(total = 0, account IN COLLECT(DISTINCT edge2) | total + account.amount) AS sumEdge2Amount,\n"+
                     "       COUNT(DISTINCT dst) AS numDst\n" +
                     "RETURN numSrc, numDst," +
                     "       CASE " +
@@ -455,39 +429,51 @@ public class Neo4jDb extends Db {
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("id", cr9.getId());
             queryParams.put("threshold", cr9.getThreshold());
-            queryParams.put("lowerbound", 0);
-            queryParams.put("upperbound", 2147483647);
             queryParams.put("start_time", DATE_FORMAT.format(cr9.getStartTime()));
             queryParams.put("end_time", DATE_FORMAT.format(cr9.getEndTime()));
 
-            String queryString = "MATCH " +
-                    "(loan:Loan)-[edge1:deposit]->(mid:Account {accountId: $id})-[edge2:repay]->(loan), " +
-                    "(up:Account)-[edge3:transfer]->(mid)-[edge4:transfer]->(down:Account) " +
-                    "WHERE edge1.amount > $threshold AND dateTime($start_time) < edge1.createTime < dateTime($end_time) " +
-                    "AND edge2.amount > $threshold AND dateTime($start_time) < edge2.createTime < dateTime($end_time) " +
-                    "AND $lowerbound < edge1.amount/edge2.amount < $upperbound " +
-                    "AND edge3.amount > $threshold AND dateTime($start_time) < edge3.createTime < dateTime($end_time) " +
-                    "AND edge4.amount > $threshold AND dateTime($start_time) < edge4.createTime < dateTime($end_time) " +
-                    "WITH REDUCE(total = 0, edge IN COLLECT(DISTINCT edge1) | total + edge.amount) AS sumEdge1, " +
-                    "REDUCE(total = 0, edge IN COLLECT(DISTINCT edge2) | total + edge.amount) AS sumEdge2, " +
-                    "REDUCE(total = 0, edge IN COLLECT(DISTINCT edge3) | total + edge.amount) AS sumEdge3, " +
-                    "REDUCE(total = 0, edge IN COLLECT(DISTINCT edge4) | total + edge.amount) AS sumEdge4 " +
-                    "RETURN " +
-                    "CASE " +
-                    "WHEN sumEdge2 > 0 THEN " +                            //CHECK IF DIV 0
-                    "round(1000 * sumEdge1/sumEdge2) / 1000 " +
-                    "ELSE -1 " +
-                    "END AS ratioRepay, " +
-                    "CASE " +
-                    "WHEN sumEdge2 > 0 THEN " +
-                    "round(1000 * sumEdge1/sumEdge4) / 1000 " +
-                    "ELSE -1 " +
-                    "END AS ratioDeposit, " +
-                    "CASE " +
-                    "WHEN sumEdge4 > 0 THEN " +
-                    "round(1000 * sumEdge3/sumEdge4) / 1000 " +
-                    "ELSE -1 " +
-                    "END AS ratioTransfer";
+            String queryString = "OPTIONAL MATCH \n" +
+                    "    (loan:Loan)-[edge1:deposit]->(mid:Account {accountId: $id})\n" +
+                    "WHERE \n" +
+                    "    edge1.amount > $threshold AND dateTime($start_time) < edge1.createTime < dateTime($end_time) \n" +
+                    "WITH \n" +
+                    "    REDUCE(total = 0, edge IN COLLECT(DISTINCT edge1) | total + edge.amount) AS sumEdge1Repay " +
+                    "\n" +
+                    "OPTIONAL MATCH \n" +
+                    "    (mid:Account {accountId: $id})-[edge2:repay]->(loan2:Loan)\n" +
+                    "WHERE \n" +
+                    "    edge2.amount > $threshold AND dateTime($start_time) < edge2.createTime < dateTime($end_time)\n" +
+                    "WITH \n" +
+                    "    sumEdge1Repay, REDUCE(total = 0, edge IN COLLECT(DISTINCT edge2) | total + edge.amount) AS sumEdge2Repay " +
+                    "OPTIONAL MATCH \n" +
+                    "    (up:Account)-[edge3:transfer]->(mid:Account {accountId: $id})\n" +
+                    "WHERE \n" +
+                    "    edge3.amount > $threshold AND dateTime($start_time) < edge3.createTime < dateTime($end_time)\n" +
+                    "WITH \n" +
+                    "    sumEdge1Repay, sumEdge2Repay, \n" +
+                    "    REDUCE(total = 0, edge IN COLLECT(DISTINCT edge3) | total + edge.amount) AS sumEdge3Transfer \n" +
+                    "\n" +
+                    "OPTIONAL MATCH \n" +
+                    "    (mid:Account {accountId: $id})-[edge4:transfer]->(down:Account)\n" +
+                    "WHERE \n" +
+                    "    edge4.amount > $threshold AND dateTime($start_time) < edge4.createTime < dateTime($end_time)\n" +
+                    "WITH \n" +
+                    "    sumEdge1Repay, sumEdge2Repay, sumEdge3Transfer,\n" +
+                    "    REDUCE(total = 0, edge IN COLLECT(DISTINCT edge4) | total + edge.amount) AS sumEdge4Transfer\n" +
+                    "\n" +
+                    "RETURN\n" +
+                    "    CASE \n" +
+                    "        WHEN sumEdge2Repay > 0 THEN round(1000 * sumEdge1Repay / sumEdge2Repay) / 1000 \n" +
+                    "        ELSE -1 \n" +
+                    "    END AS ratioRepay, \n" +
+                    "    CASE \n" +
+                    "        WHEN sumEdge4Transfer > 0 THEN round(1000 * sumEdge1Repay / sumEdge4Transfer) / 1000 \n" +
+                    "        ELSE -1 \n" +
+                    "    END AS ratioDeposit, \n" +
+                    "    CASE \n" +
+                    "        WHEN sumEdge4Transfer > 0 THEN round(1000 * sumEdge3Transfer / sumEdge4Transfer) / 1000 \n" +
+                    "        ELSE -1 \n" +
+                    "    END AS ratioTransfer;\n";
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             String result = client.execute(queryString, queryParams);

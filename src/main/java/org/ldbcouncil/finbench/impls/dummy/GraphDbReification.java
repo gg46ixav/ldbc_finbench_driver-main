@@ -1962,6 +1962,10 @@ public class GraphDbReification extends Db {
 
                 RepositoryConnection connection = client.startTransaction(write12String);
 
+                if(!connection.isOpen()){
+                    resultReporter.report(0, LdbcNoResult.INSTANCE, rw1);
+                    return;
+                }
                 String complexRead4String = "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\n" +
                         "PREFIX ex: <http://example.org/>\n" +
                         "PREFIX account: <http://example.org/Account/>\n" +
@@ -2093,6 +2097,10 @@ public class GraphDbReification extends Db {
 
                 RepositoryConnection connection = client.startTransaction(write12String);
 
+                if(!connection.isOpen()){
+                    resultReporter.report(0, LdbcNoResult.INSTANCE, rw2);
+                    return;
+                }
                 List<Float> ratios = new ArrayList<>();
 
                 for(Long id: new Long[]{rw2.getSrcId(), rw2.getDstId()}) {
@@ -2218,6 +2226,10 @@ public class GraphDbReification extends Db {
 
                 RepositoryConnection connection = client.startTransaction(write10String);
 
+                if(!connection.isOpen()){
+                    resultReporter.report(0, LdbcNoResult.INSTANCE, rw3);
+                    return;
+                }
                 //HIER CR11
                 String complexRead11String = "";
 

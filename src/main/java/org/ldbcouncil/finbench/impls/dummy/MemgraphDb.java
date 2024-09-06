@@ -233,33 +233,24 @@ public class MemgraphDb extends Db {
             queryParams.put("start_time", DATE_FORMAT.format(cr4.getStartTime()));
             queryParams.put("end_time", DATE_FORMAT.format(cr4.getEndTime()));
 
-            String queryString = "MATCH " +
-                    "(src:Account {accountId: $id1})-[edge1:transfer]->(dst:Account {accountId: $id2}), " +
-                    "(dst)-[edge3:transfer]->(other:Account)-[edge2:transfer]->(src) " +                //changed src dst and direction so it matches cr4
+            String queryString = "MATCH \n" +
+                    "    (src:Account {accountId: $id1})-[edge1:transfer]->(dst:Account {accountId: $id2}), \n" +
+                    "    (dst)-[edge3:transfer]->(other:Account)-[edge2:transfer]->(src) \n" +
                     "WHERE localDateTime($start_time) < edge1.createTime < localDateTime($end_time) " +
                     "AND localDateTime($start_time) < edge2.createTime < localDateTime($end_time) " +
                     "AND localDateTime($start_time) < edge3.createTime < localDateTime($end_time) " +
-                    "WITH " +
-                    "other.accountId AS otherId, " +
-                    "count(DISTINCT edge2) AS numEdge2, (round(1000 * (REDUCE(total = 0, account IN COLLECT(DISTINCT edge2) | total + account.amount)))/1000) AS sumEdge2Amount, " +       //added distinct, so it doesn't add same edge more than once
-                    "(round(1000 * max(edge2.amount))/1000) AS maxEdge2Amount, " +
-                    "count(DISTINCT edge3) AS numEdge3, (round(1000 * (REDUCE(total = 0, account IN COLLECT(DISTINCT edge3) | total + account.amount)))/1000) AS sumEdge3Amount, " +
-                    "(round(1000 * max(edge3.amount))/1000) AS maxEdge3Amount " +
-                    "ORDER BY sumEdge2Amount+sumEdge3Amount DESC " +
-                    "WITH collect({otherId: otherId, numEdge2: numEdge2, sumEdge2Amount: sumEdge2Amount, " +
-                    "maxEdge2Amount: maxEdge2Amount, numEdge3: numEdge3, sumEdge3Amount: sumEdge3Amount, " +
-                    "maxEdge3Amount: maxEdge3Amount}) AS results " +
-                    "WITH coalesce(head(results), {otherId: -1, numEdge2: 0, sumEdge2Amount: 0, maxEdge2Amount: 0, " +
-                    "numEdge3: 0, sumEdge3Amount: 0, maxEdge3Amount: 0}) AS top " +
-                    "RETURN " +
-                    "top.otherId AS otherId, " +
-                    "top.numEdge2 AS numEdge2,  " +
-                    "top.sumEdge2Amount AS sumEdge2Amount, " +
-                    "top.maxEdge2Amount AS maxEdge2Amount, " +
-                    "top.numEdge3 AS numEdge3, " +
-                    "top.sumEdge3Amount AS sumEdge3Amount, " +
-                    "top.maxEdge3Amount AS maxEdge3Amount " +
-                    "ORDER BY sumEdge2Amount DESC, sumEdge3Amount DESC, size(otherId) ASC, otherId ASC ";
+                    "WITH \n" +
+                    "    other.accountId as otherId,\n" +
+                    "    count(DISTINCT edge3) AS numEdge3, \n" +
+                    "    round(1000 * sum(DISTINCT edge3.amount)) / 1000 AS sumEdge3Amount,\n" +
+                    "    round(1000 * max(edge3.amount)) / 1000 AS maxEdge3Amount,\n" +
+                    "    count(DISTINCT edge2) AS numEdge2, \n" +
+                    "    round(1000 * sum(DISTINCT edge2.amount)) / 1000 AS sumEdge2Amount,\n" +
+                    "    round(1000 * max(edge2.amount)) / 1000 AS maxEdge2Amount\n" +
+                    "// Optional match for outgoing transfers from dst to other\n" +
+                    "RETURN otherId, numEdge2, sumEdge2Amount,maxEdge2Amount, \n" +
+                    "     numEdge3, sumEdge3Amount, maxEdge3Amount\n" +
+                    "ORDER BY sumEdge2Amount DESC,sumEdge3Amount DESC, otherId ASC;\n";
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             String result = client.execute(queryString, queryParams);
@@ -332,15 +323,14 @@ public class MemgraphDb extends Db {
                     "  AND localDateTime($start_time) < edge2.createTime < localDateTime($end_time) \n" +
                     "  AND edge2.amount > $threshold2 \n" +
                     "WITH mid, count(edge1) AS transferCount, " +
-                    "(round(1000 * sum(edge1.amount))/1000) AS sumEdge1Amount, " +           //ADDED ROUND
-                    "(round(1000 * (REDUCE(total = 0, account IN COLLECT(DISTINCT edge2) | total + account.amount)))/1000) AS sumEdge2Amount " +
+                    "(round(1000 * REDUCE(total = 0, edge IN COLLECT(DISTINCT edge1) | total + edge.amount))/1000) AS sumEdge1Amount, " +           //ADDED ROUND
+                    "(round(1000 * (REDUCE(total = 0, edge IN COLLECT(DISTINCT edge2) | total + edge.amount)))/1000) AS sumEdge2Amount " +
                     "WHERE transferCount > 3 " +
                     "RETURN " +
                     "  mid.accountId AS midId, " +
                     "  sumEdge1Amount, " +
                     "  sumEdge2Amount " +
-                    "ORDER BY sumEdge2Amount DESC, size(midId) ASC, midId ASC";
-
+                    "ORDER BY sumEdge2Amount DESC, midId ASC";
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             String result = client.execute(queryString, queryParams);
 
@@ -373,8 +363,12 @@ public class MemgraphDb extends Db {
                     "                    AND localDateTime($start_time) < edge2.createTime < localDateTime($end_time) \n" +
                     "                    AND edge2.amount > $threshold \n" +
                     "WITH REDUCE(total = 0, account IN COLLECT(DISTINCT edge1) | total + account.amount) AS sumEdge1Amount, " +
-                    "REDUCE(total = 0, account IN COLLECT(DISTINCT edge2) | total + account.amount) AS sumEdge2Amount,\n" +
-                    "       COUNT(DISTINCT src) AS numSrc,\n" +
+                    "       COUNT(DISTINCT src) AS numSrc\n" +
+                    "OPTIONAL MATCH (mid:Account {accountId: $id})-[edge2:transfer]->(dst:Account)\n" +
+                    "WHERE localDateTime($start_time) < edge2.createTime < localDateTime($end_time) \n" +
+                    "                    AND edge2.amount > $threshold \n" +
+                    "WITH sumEdge1Amount, numSrc," +
+                    "REDUCE(total = 0, account IN COLLECT(DISTINCT edge2) | total + account.amount) AS sumEdge2Amount,\n"+
                     "       COUNT(DISTINCT dst) AS numDst\n" +
                     "RETURN numSrc, numDst," +
                     "       CASE " +
@@ -382,7 +376,6 @@ public class MemgraphDb extends Db {
                     "       ELSE -1 " +
                     "       END AS inOutRatio " +
                     "ORDER BY numSrc DESC, numDst DESC, inOutRatio DESC";
-
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             String result = client.execute(queryString, queryParams);
 
@@ -446,48 +439,51 @@ public class MemgraphDb extends Db {
             Map<String, Object> queryParams = new HashMap<>();
             queryParams.put("id", cr9.getId() + "");
             queryParams.put("threshold", cr9.getThreshold());
-            queryParams.put("lowerbound", 0);
-            queryParams.put("upperbound", 2147483647);
             queryParams.put("start_time", DATE_FORMAT.format(cr9.getStartTime()));
             queryParams.put("end_time", DATE_FORMAT.format(cr9.getEndTime()));
 
-            String queryString = "MATCH \n" +
-                    "    (loan:Loan)-[edge1:deposit]->(mid:Account {accountId: $id})-[edge2:repay]->(loan),\n" +
-                    "    (up:Account)-[edge3:transfer]->(mid)-[edge4:transfer]->(down:Account)\n" +
+            String queryString = "OPTIONAL MATCH \n" +
+                    "    (loan:Loan)-[edge1:deposit]->(mid:Account {accountId: $id})\n" +
                     "WHERE \n" +
-                    "    edge1.amount > $threshold \n" +
-                    "    AND localDateTime($start_time) < edge1.createTime < localDateTime($end_time) \n" +
-                    "    AND edge2.amount > $threshold \n" +
-                    "    AND localDateTime($start_time) < edge2.createTime < localDateTime($end_time) \n" +
-                    "    AND $lowerbound < edge1.amount / edge2.amount < $upperbound \n" +
-                    "    AND edge3.amount > $threshold \n" +
-                    "    AND localDateTime($start_time) < edge3.createTime < localDateTime($end_time) \n" +
-                    "    AND edge4.amount > $threshold \n" +
-                    "    AND localDateTime($start_time) < edge4.createTime < localDateTime($end_time)\n" +
+                    "    edge1.amount > $threshold AND localDateTime($start_time) < edge1.createTime < localDateTime($end_time) \n" +
                     "WITH \n" +
-                    "    REDUCE(total = 0, edge IN COLLECT(DISTINCT edge1) | total + edge.amount) AS totalDepositAmount,\n" +
-                    "    REDUCE(total = 0, edge IN COLLECT(DISTINCT edge2) | total + edge.amount) AS totalRepayAmount,\n" +
-                    "    REDUCE(total = 0, edge IN COLLECT(DISTINCT edge3) | total + edge.amount) AS totalTransferAmount,\n" +
-                    "    REDUCE(total = 0, edge IN COLLECT(DISTINCT edge4) | total + edge.amount) AS totalDownstreamTransferAmount\n" +
-                    "RETURN \n" +
+                    "    REDUCE(total = 0, edge IN COLLECT(DISTINCT edge1) | total + edge.amount) AS sumEdge1Repay " +
+                    "\n" +
+                    "OPTIONAL MATCH \n" +
+                    "    (mid:Account {accountId: $id})-[edge2:repay]->(loan2:Loan)\n" +
+                    "WHERE \n" +
+                    "    edge2.amount > $threshold AND localDateTime($start_time) < edge2.createTime < localDateTime($end_time)\n" +
+                    "WITH \n" +
+                    "    sumEdge1Repay, REDUCE(total = 0, edge IN COLLECT(DISTINCT edge2) | total + edge.amount) AS sumEdge2Repay " +
+                    "OPTIONAL MATCH \n" +
+                    "    (up:Account)-[edge3:transfer]->(mid:Account {accountId: $id})\n" +
+                    "WHERE \n" +
+                    "    edge3.amount > $threshold AND localDateTime($start_time) < edge3.createTime < localDateTime($end_time)\n" +
+                    "WITH \n" +
+                    "    sumEdge1Repay, sumEdge2Repay, \n" +
+                    "    REDUCE(total = 0, edge IN COLLECT(DISTINCT edge3) | total + edge.amount) AS sumEdge3Transfer \n" +
+                    "\n" +
+                    "OPTIONAL MATCH \n" +
+                    "    (mid:Account {accountId: $id})-[edge4:transfer]->(down:Account)\n" +
+                    "WHERE \n" +
+                    "    edge4.amount > $threshold AND localDateTime($start_time) < edge4.createTime < localDateTime($end_time)\n" +
+                    "WITH \n" +
+                    "    sumEdge1Repay, sumEdge2Repay, sumEdge3Transfer,\n" +
+                    "    REDUCE(total = 0, edge IN COLLECT(DISTINCT edge4) | total + edge.amount) AS sumEdge4Transfer\n" +
+                    "\n" +
+                    "RETURN\n" +
                     "    CASE \n" +
-                    "        WHEN totalRepayAmount > 0 AND totalDownstreamTransferAmount > 0 THEN \n" +
-                    "            round(1000 * totalDepositAmount / totalRepayAmount) / 1000 \n" +
-                    "        ELSE \n" +
-                    "            -1 \n" +
+                    "        WHEN sumEdge2Repay > 0 THEN round(1000 * sumEdge1Repay / sumEdge2Repay) / 1000 \n" +
+                    "        ELSE -1 \n" +
                     "    END AS ratioRepay, \n" +
                     "    CASE \n" +
-                    "        WHEN totalDownstreamTransferAmount > 0 THEN \n" +
-                    "            round(1000 * totalDepositAmount / totalDownstreamTransferAmount) / 1000 \n" +
-                    "        ELSE \n" +
-                    "            -1 \n" +
+                    "        WHEN sumEdge4Transfer > 0 THEN round(1000 * sumEdge1Repay / sumEdge4Transfer) / 1000 \n" +
+                    "        ELSE -1 \n" +
                     "    END AS ratioDeposit, \n" +
                     "    CASE \n" +
-                    "        WHEN totalDownstreamTransferAmount > 0 THEN \n" +
-                    "            round(1000 * totalTransferAmount / totalDownstreamTransferAmount) / 1000 \n" +
-                    "        ELSE \n" +
-                    "            -1 \n" +
-                    "    END AS ratioTransfer\n";
+                    "        WHEN sumEdge4Transfer > 0 THEN round(1000 * sumEdge3Transfer / sumEdge4Transfer) / 1000 \n" +
+                    "        ELSE -1 \n" +
+                    "    END AS ratioTransfer;\n";
 
             CypherDbConnectionState.CypherClient client = cypherDbConnectionState.client();
             String result = client.execute(queryString, queryParams);
