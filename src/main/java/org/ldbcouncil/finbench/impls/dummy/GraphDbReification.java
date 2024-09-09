@@ -1923,7 +1923,7 @@ public class GraphDbReification extends Db {
                     return;
                 }
                 String write12String = "PREFIX ex: <http://example.org/> " +
-                        "PREFIX account: <http://example.org/Account> " +
+                        "PREFIX account: <http://example.org/Account/> " +
                         "            INSERT DATA{ " +
                         " [] rdf:subject account:" + rw1.getSrcId() + " ;" +
                         "    rdf:predicate ex:transfer ;" +
@@ -2010,8 +2010,8 @@ public class GraphDbReification extends Db {
                         "                     account:"+rw1.getDstId()+" ex:isBlocked \"true\"^^<http://www.w3.org/2001/XMLSchema#boolean> ." +
                         "            }";
 
-                client.execute(write18StringSrc);
-                client.execute(write18StringDst);
+                client.executeWrite(write18StringSrc);
+                client.executeWrite(write18StringDst);
 
 
             } catch (JsonProcessingException e) {
@@ -2058,7 +2058,7 @@ public class GraphDbReification extends Db {
                     return;
                 }
                 String write12String = "PREFIX ex: <http://example.org/> " +
-                        "PREFIX account: <http://example.org/Account> " +
+                        "PREFIX account: <http://example.org/Account/> " +
                         "            INSERT DATA{ " +
                         " [] rdf:subject account:" + rw2.getSrcId() + " ;" +
                         "    rdf:predicate ex:transfer ;" +
@@ -2141,8 +2141,8 @@ public class GraphDbReification extends Db {
                         "                     account:"+rw2.getDstId()+" ex:isBlocked \"true\"^^<http://www.w3.org/2001/XMLSchema#boolean> ." +
                         "            }";
 
-                client.execute(write18StringSrc);
-                client.execute(write18StringDst);
+                client.executeWrite(write18StringSrc);
+                client.executeWrite(write18StringDst);
 
 
             } catch (JsonProcessingException e) {
@@ -2189,7 +2189,7 @@ public class GraphDbReification extends Db {
                     return;
                 }
                 String write10String = "PREFIX ex: <http://example.org/> " +
-                        "PREFIX person: <http://example.org/Person> " +
+                        "PREFIX person: <http://example.org/Person/> " +
                         "            INSERT DATA{ " +
                         " [] rdf:subject person:" + rw3.getSrcId() + " ;" +
                         "    rdf:predicate ex:guarantee ;" +
