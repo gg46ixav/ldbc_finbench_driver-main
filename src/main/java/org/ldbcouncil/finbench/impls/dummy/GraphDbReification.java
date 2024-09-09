@@ -57,7 +57,6 @@ public class GraphDbReification extends Db {
 
 
         // writes
-/*
         registerOperationHandler(Write1.class, Write1Handler.class);
 
         registerOperationHandler(Write2.class, Write2Handler.class);
@@ -78,20 +77,17 @@ public class GraphDbReification extends Db {
         registerOperationHandler(Write16.class, Write16Handler.class);
 
 
-        /*
+
         registerOperationHandler(Write17.class, Write17Handler.class);
         registerOperationHandler(Write18.class, Write18Handler.class);
         registerOperationHandler(Write19.class, Write19Handler.class);
 
 
-         */
-        /*
         // read-writes
         registerOperationHandler(ReadWrite1.class, ReadWrite1Handler.class);
         registerOperationHandler(ReadWrite2.class, ReadWrite2Handler.class);
-        registerOperationHandler(ReadWrite3.class, ReadWrite3Handler.class);
+        //registerOperationHandler(ReadWrite3.class, ReadWrite3Handler.class);
 
-         */
     }
 
     @Override
@@ -847,61 +843,62 @@ public class GraphDbReification extends Db {
                     "  (IF(SUM(?edge2Amount) > 0, \n" +
                     "       ROUND(1000 * (SUM(DISTINCT ?edge1Amount) / SUM(DISTINCT ?edge2Amount)) / 1.0) / 1000, \n" +
                     "       -1) AS ?ratioRepay)\n" +
-                    "  (IF(SUM(?edge2Amount) > 0, \n" +
+                    "  (IF(SUM(?edge4Amount) > 0, \n" +
                     "       ROUND(1000 * (SUM(DISTINCT ?edge1Amount) / SUM(DISTINCT ?edge4Amount)) / 1.0) / 1000, \n" +
                     "       -1) AS ?ratioDeposit)\n" +
                     "  (IF(SUM(?edge4Amount) > 0, \n" +
                     "       ROUND(1000 * (SUM(DISTINCT ?edge3Amount) / SUM(DISTINCT ?edge4Amount)) / 1.0) / 1000, \n" +
                     "       -1) AS ?ratioTransfer)\n" +
                     "WHERE { \n" +
-                    "    BIND(account:"+cr9.getId()+" AS ?startAccount)\n" +
-                    "    \n" +
-                    "    # Reification for << ?loan ex:deposit ?startAccount >>\n" +
-                    "    ?blankNode1 rdf:subject ?loan .\n" +
-                    "    ?blankNode1 rdf:predicate ex:deposit .\n" +
-                    "    ?blankNode1 rdf:object ?startAccount .\n" +
-                    "    ?blankNode1 ex:provenance ?edge1 .\n" +
-                    "    ?edge1 ex:amount ?edge1Amount ;\n" +
-                    "           ex:createTime ?edge1CreateTime .\n" +
-                    "    \n" +
-                    "    # Reification for << ?startAccount ex:repay ?loan >>\n" +
-                    "    ?blankNode2 rdf:subject ?startAccount .\n" +
-                    "    ?blankNode2 rdf:predicate ex:repay .\n" +
-                    "    ?blankNode2 rdf:object ?loan .\n" +
-                    "    ?blankNode2 ex:provenance ?edge2 .\n" +
-                    "    ?edge2 ex:amount ?edge2Amount ;\n" +
-                    "           ex:createTime ?edge2CreateTime .\n" +
-                    "    \n" +
-                    "    # Reification for << ?upAccount ex:transfer ?startAccount >>\n" +
-                    "    ?blankNode3 rdf:subject ?upAccount .\n" +
-                    "    ?blankNode3 rdf:predicate ex:transfer .\n" +
-                    "    ?blankNode3 rdf:object ?startAccount .\n" +
-                    "    ?blankNode3 ex:provenance ?edge3 .\n" +
-                    "    ?edge3 ex:amount ?edge3Amount ;\n" +
-                    "           ex:createTime ?edge3CreateTime .\n" +
-                    "    \n" +
-                    "    # Reification for << ?startAccount ex:transfer ?downAccount >>\n" +
-                    "    ?blankNode4 rdf:subject ?startAccount .\n" +
-                    "    ?blankNode4 rdf:predicate ex:transfer .\n" +
-                    "    ?blankNode4 rdf:object ?downAccount .\n" +
-                    "    ?blankNode4 ex:provenance ?edge4 .\n" +
-                    "    ?edge4 ex:amount ?edge4Amount ;\n" +
-                    "           ex:createTime ?edge4CreateTime .\n" +
-                    "    \n" +
-                    "        BIND(xsd:decimal("+cr9.getThreshold()+") AS ?threshold)\n" +
-                    "        BIND(xsd:dateTime(\""+DATE_FORMAT.format(cr9.getStartTime())+"\") AS ?startTime)\n" +
-                    "        BIND(xsd:dateTime(\""+DATE_FORMAT.format(cr9.getEndTime())+"\") AS ?endTime)\n" +
-                    "    \n" +
-                    "    FILTER(?edge1Amount > ?threshold \n" +
-                    "           && ?edge2Amount > ?threshold \n" +
-                    "           && ?edge3Amount > ?threshold \n" +
-                    "           && ?edge4Amount > ?threshold)    \n" +
-                    "    FILTER(?startTime < ?edge1CreateTime && ?edge1CreateTime < ?endTime)\n" +
-                    "    FILTER(?startTime < ?edge2CreateTime && ?edge2CreateTime < ?endTime)\n" +
-                    "    FILTER(?startTime < ?edge3CreateTime && ?edge3CreateTime < ?endTime)\n" +
-                    "    FILTER(?startTime < ?edge4CreateTime && ?edge4CreateTime < ?endTime)\n" +
-                    "    FILTER(xsd:decimal(0) < (?edge1Amount / ?edge2Amount) \n" +
-                    "           && (?edge1Amount / ?edge2Amount) < xsd:decimal(2147483647))\n" +
+                    "    BIND(account:"+ cr9.getId() +" AS ?startAccount)\n" +
+                    "    BIND(xsd:decimal(\""+ cr9.getThreshold() +"\") AS ?threshold)\n" +
+                    "    BIND(xsd:dateTime(\""+ DATE_FORMAT.format(cr9.getStartTime()) +"\") AS ?startTime)\n" +
+                    "    BIND(xsd:dateTime(\""+ DATE_FORMAT.format(cr9.getEndTime()) +"\") AS ?endTime)\n" +
+                    "\n" +
+                    "    OPTIONAL {\n" +
+                    "        ?blankNode1 rdf:subject ?loan .\n" +
+                    "        ?blankNode1 rdf:predicate ex:deposit .\n" +
+                    "        ?blankNode1 rdf:object ?startAccount .\n" +
+                    "        ?blankNode1 ex:provenance ?edge1 .\n" +
+                    "        ?edge1 ex:amount ?edge1Amount ;\n" +
+                    "               ex:createTime ?edge1CreateTime .\n" +
+                    "\n" +
+                    "        # Reification for << ?startAccount ex:repay ?loan >>\n" +
+                    "        ?blankNode2 rdf:subject ?startAccount .\n" +
+                    "        ?blankNode2 rdf:predicate ex:repay .\n" +
+                    "        ?blankNode2 rdf:object ?loan .\n" +
+                    "        ?blankNode2 ex:provenance ?edge2 .\n" +
+                    "        ?edge2 ex:amount ?edge2Amount ;\n" +
+                    "               ex:createTime ?edge2CreateTime .\n" +
+                    "\n" +
+                    "        FILTER(?edge1Amount > ?threshold && ?edge2Amount > ?threshold)\n" +
+                    "        FILTER(?startTime < ?edge1CreateTime && ?edge1CreateTime < ?endTime)\n" +
+                    "        FILTER(?startTime < ?edge2CreateTime && ?edge2CreateTime < ?endTime)\n" +
+                    "    }\n" +
+                    "\n" +
+                    "    OPTIONAL {\n" +
+                    "        ?blankNode3 rdf:subject ?upAccount .\n" +
+                    "        ?blankNode3 rdf:predicate ex:transfer .\n" +
+                    "        ?blankNode3 rdf:object ?startAccount .\n" +
+                    "        ?blankNode3 ex:provenance ?edge3 .\n" +
+                    "        ?edge3 ex:amount ?edge3Amount ;\n" +
+                    "               ex:createTime ?edge3CreateTime .\n" +
+                    "\n" +
+                    "        FILTER(?edge3Amount > ?threshold)\n" +
+                    "        FILTER(?startTime < ?edge3CreateTime && ?edge3CreateTime < ?endTime)\n" +
+                    "    }\n" +
+                    "\n" +
+                    "    OPTIONAL {\n" +
+                    "        ?blankNode4 rdf:subject ?startAccount .\n" +
+                    "        ?blankNode4 rdf:predicate ex:transfer .\n" +
+                    "        ?blankNode4 rdf:object ?downAccount .\n" +
+                    "        ?blankNode4 ex:provenance ?edge4 .\n" +
+                    "        ?edge4 ex:amount ?edge4Amount ;\n" +
+                    "               ex:createTime ?edge4CreateTime .\n" +
+                    "\n" +
+                    "        FILTER(?edge4Amount > ?threshold)\n" +
+                    "        FILTER(?startTime < ?edge4CreateTime && ?edge4CreateTime < ?endTime)\n" +
+                    "    }\n" +
                     "}\n";
 
             GraphDbConnectionState.GraphDbClient client = GraphDbConnectionState.client();
@@ -1801,66 +1798,44 @@ public class GraphDbReification extends Db {
             queryParams.put("accountId", w17.getAccountId());
 
             String queryString = "PREFIX ex: <http://example.org/>\n" +
-                    "PREFIX account: <http://example.org/Account/> " +
+                    "PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\n" +
+                    "PREFIX account: <http://example.org/Account/>\n" +
                     "\n" +
                     "# Löschen des Accounts und aller zugehörigen Tripel\n" +
                     "DELETE {\n" +
                     "  # Löscht alle Tripel, in denen der Account als Subjekt oder Objekt beteiligt ist\n" +
                     "  ?s ?p ?o .\n" +
-                    "  # Löscht alle Tripel, die den Account in den Kanten `own`, `transfer`, `withdraw`, `repay`, `deposit`, `signIn` betreffen\n" +
                     "  ?s ?p ?account .\n" +
                     "  ?account ?p2 ?o2 .\n" +
                     "  # Löscht alle Tripel, die `Loan`-Objekte betreffen, die mit dem Account verbunden sind\n" +
                     "  ?loan ex:deposit ?account .\n" +
                     "  ?account ex:repay ?loan .\n" +
-                    "  [] rdf:subject ?account ; " +
-                    "                        rdf:predicate ?a ; " +
-                    "                        rdf:object ?b ; " +
-                    "                        ex:provenance  ?occurrence1 .\n" +
-                    "  ?account ex:repay ?loan .\n" +
-                    "  [] rdf:subject ?c ; " +
-                    "                        rdf:predicate ?d ; " +
-                    "                        rdf:object ?account ; " +
-                    "                        ex:provenance  ?occurrence2 .\n" +
+                    "  # Löscht alle Provenance-Informationen, die den Account betreffen\n" +
+                    "  ?occ1 rdf:subject ?account ; rdf:predicate ?a ; rdf:object ?b ; ex:provenance ?occurrence1 .\n" +
+                    "  ?occ2 rdf:subject ?c ; rdf:predicate ?d ; rdf:object ?account ; ex:provenance ?occurrence2 .\n" +
                     "}\n" +
                     "WHERE {\n" +
                     "  # Account-ID binden\n" +
-                    "  BIND(account:"+w17.getAccountId()+" AS ?account)\n" +
-                    "  \n" +
+                    "  BIND(account:" + w17.getAccountId() + " AS ?account)\n" +
+                    "\n" +
                     "  # Löschen der Tripel, in denen der Account als Subjekt auftritt\n" +
-                    "  {\n" +
-                    "    ?account ?p ?o .\n" +
-                    "  }\n" +
+                    "  { ?account ?p ?o . }\n" +
                     "  UNION\n" +
                     "  # Löschen der Tripel, in denen der Account als Objekt auftritt\n" +
-                    "  {\n" +
-                    "    ?s ?p ?account .\n" +
-                    "  }\n" +
+                    "  { ?s ?p ?account . }\n" +
                     "  UNION\n" +
                     "  # Löschen der Kanten wie `own`, `transfer`, `withdraw`, `repay`, `deposit`, `signIn`\n" +
-                    "  {\n" +
-                    "    ?s ?p ?account .\n" +
-                    "    ?account ?p2 ?o2 .\n" +
-                    "  }\n" +
+                    "  { ?s ?p ?account . ?account ?p2 ?o2 . }\n" +
                     "  UNION\n" +
                     "  # Löschen von Loan-Objekten, die mit dem Account verbunden sind\n" +
-                    "  {\n" +
-                    "    ?account ex:repay ?loan .\n" +
-                    "    ?loan ex:deposit ?account .\n" +
-                    "  }\n" +
-                    "    UNION{\n" +
-                    "  [] rdf:subject ?account ; " +
-                    "                        rdf:predicate ?a ; " +
-                    "                        rdf:object ?b ; " +
-                    "                        ex:provenance  ?occurrence1 .\n" +
-                    "    }\n" +
-                    "    UNION{\n" +
-                    "  [] rdf:subject ?c ; " +
-                    "                        rdf:predicate ?d ; " +
-                    "                        rdf:object ?account ; " +
-                    "                        ex:provenance  ?occurrence2 .\n" +
-                    "    }\n" +
+                    "  { ?account ex:repay ?loan . ?loan ex:deposit ?account . }\n" +
+                    "  UNION\n" +
+                    "  # Löschen von Provenance-Tripeln (Ereignisse, die den Account betreffen)\n" +
+                    "  { ?occ1 rdf:subject ?account ; rdf:predicate ?a ; rdf:object ?b ; ex:provenance ?occurrence1 . }\n" +
+                    "  UNION\n" +
+                    "  { ?occ2 rdf:subject ?c ; rdf:predicate ?d ; rdf:object ?account ; ex:provenance ?occurrence2 . }\n" +
                     "}\n";
+
 
 
             GraphDbConnectionState.GraphDbClient client = graphDbConnectionState.client();

@@ -684,50 +684,66 @@ public class GraphDb extends Db {
             queryParams.put("end_time", DATE_FORMAT.format(cr9.getEndTime()));
 
             String queryString = "PREFIX ex: <http://example.org/>\n" +
-                    "                    PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\n" +
-                    "                    \n" +
+                    "PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\n" +
+                    "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\n" +
+                    "PREFIX account: <http://example.org/Account/>\n" +
+                    "\n" +
                     "SELECT \n" +
-                    "(IF(SUM(?edge2Amount) > 0 && SUM(?edge4Amount) > 0, \n" +
-                    "       ROUND(1000 * SUM(DISTINCT ?edge1Amount) / SUM(DISTINCT ?edge2Amount)) / 1000, \n" +
-                    "       -1) AS ?ratioRepay)\n" +
                     "  (IF(SUM(?edge2Amount) > 0, \n" +
-                    "       ROUND(1000 * SUM(DISTINCT ?edge1Amount) / SUM(DISTINCT ?edge4Amount)) / 1000, \n" +
+                    "       ROUND(1000 * (SUM(DISTINCT ?edge1Amount) / SUM(DISTINCT ?edge2Amount)) / 1.0) / 1000, \n" +
+                    "       -1) AS ?ratioRepay)\n" +
+                    "  (IF(SUM(?edge4Amount) > 0, \n" +
+                    "       ROUND(1000 * (SUM(DISTINCT ?edge1Amount) / SUM(DISTINCT ?edge4Amount)) / 1.0) / 1000, \n" +
                     "       -1) AS ?ratioDeposit)\n" +
                     "  (IF(SUM(?edge4Amount) > 0, \n" +
-                    "       ROUND(1000 * SUM(DISTINCT ?edge3Amount) / SUM(DISTINCT ?edge4Amount)) / 1000, \n" +
+                    "       ROUND(1000 * (SUM(DISTINCT ?edge3Amount) / SUM(DISTINCT ?edge4Amount)) / 1.0) / 1000, \n" +
                     "       -1) AS ?ratioTransfer)\n" +
                     "WHERE { \n" +
-                    "    BIND(ex:Account"+cr9.getId()+" AS ?startAccount)\n" +
-                    "    << ?loan ex:deposit ?startAccount >> ex:occurrences ?edge1 .\n" +
-                    "    << ?startAccount ex:repay ?loan >> ex:occurrences ?edge2 .    \n" +
-                    "    << ?upAccount ex:transfer ?startAccount >> ex:occurrences ?edge3 .\n" +
-                    "    << ?startAccount ex:transfer ?downAccount >> ex:occurrences ?edge4 .\n" +
-                    "        \n" +
+                    "    BIND(account:"+ cr9.getId() +" AS ?startAccount)\n" +
+                    "    BIND(xsd:decimal(\""+ cr9.getThreshold() +"\") AS ?threshold)\n" +
+                    "    BIND(xsd:dateTime(\""+ DATE_FORMAT.format(cr9.getStartTime()) +"\") AS ?startTime)\n" +
+                    "    BIND(xsd:dateTime(\""+ DATE_FORMAT.format(cr9.getEndTime()) +"\") AS ?endTime)\n" +
+                    "\n" +
+                    "    # OPTIONAL: Loan -> Account -> Loan2 (deposit and repay)\n" +
+                    "    OPTIONAL {\n" +
+                    "        # RDF* Statement: << ?loan ex:deposit ?startAccount >> ex:provenance ?edge1 .\n" +
+                    "        << ?loan ex:deposit ?startAccount >> ex:provenance ?edge1 .\n" +
                     "        ?edge1 ex:amount ?edge1Amount ;\n" +
                     "               ex:createTime ?edge1CreateTime .\n" +
-                    "        \n" +
+                    "\n" +
+                    "        # RDF* Statement: << ?startAccount ex:repay ?loan >> ex:provenance ?edge2 .\n" +
+                    "        << ?startAccount ex:repay ?loan >> ex:provenance ?edge2 .\n" +
                     "        ?edge2 ex:amount ?edge2Amount ;\n" +
                     "               ex:createTime ?edge2CreateTime .\n" +
-                    "        \n" +
-                    "        ?edge3 ex:amount ?edge3Amount ;\n" +
-                    "               ex:createTime ?edge3CreateTime .\n" +
-                    "        \n" +
-                    "        ?edge4 ex:amount ?edge4Amount ;\n" +
-                    "               ex:createTime ?edge4CreateTime .\n" +
-                    "        \n" +
-                    "        BIND(xsd:decimal("+cr9.getThreshold()+") AS ?threshold)\n" +
-                    "        BIND(xsd:dateTime(\""+DATE_FORMAT.format(cr9.getStartTime())+"\") AS ?startTime)\n" +
-                    "        BIND(xsd:dateTime(\""+DATE_FORMAT.format(cr9.getEndTime())+"\") AS ?endTime)\n" +
-                    "        FILTER(?edge1Amount > ?threshold \n" +
-                    "               && ?edge2Amount > ?threshold \n" +
-                    "               && ?edge3Amount > ?threshold \n" +
-                    "               && ?edge4Amount > ?threshold)    \n" +
+                    "\n" +
+                    "        FILTER(?edge1Amount > ?threshold && ?edge2Amount > ?threshold)\n" +
                     "        FILTER(?startTime < ?edge1CreateTime && ?edge1CreateTime < ?endTime)\n" +
                     "        FILTER(?startTime < ?edge2CreateTime && ?edge2CreateTime < ?endTime)\n" +
+                    "    }\n" +
+                    "\n" +
+                    "    # OPTIONAL: Transfer from an up account to the start account\n" +
+                    "    OPTIONAL {\n" +
+                    "        # RDF* Statement: << ?upAccount ex:transfer ?startAccount >> ex:provenance ?edge3 .\n" +
+                    "        << ?upAccount ex:transfer ?startAccount >> ex:provenance ?edge3 .\n" +
+                    "        ?edge3 ex:amount ?edge3Amount ;\n" +
+                    "               ex:createTime ?edge3CreateTime .\n" +
+                    "\n" +
+                    "        FILTER(?edge3Amount > ?threshold)\n" +
                     "        FILTER(?startTime < ?edge3CreateTime && ?edge3CreateTime < ?endTime)\n" +
+                    "    }\n" +
+                    "\n" +
+                    "    # OPTIONAL: Transfer from the start account to a down account\n" +
+                    "    OPTIONAL {\n" +
+                    "        # RDF* Statement: << ?startAccount ex:transfer ?downAccount >> ex:provenance ?edge4 .\n" +
+                    "        << ?startAccount ex:transfer ?downAccount >> ex:provenance ?edge4 .\n" +
+                    "        ?edge4 ex:amount ?edge4Amount ;\n" +
+                    "               ex:createTime ?edge4CreateTime .\n" +
+                    "\n" +
+                    "        FILTER(?edge4Amount > ?threshold)\n" +
                     "        FILTER(?startTime < ?edge4CreateTime && ?edge4CreateTime < ?endTime)\n" +
-                    "        FILTER(xsd:decimal("+ 0 +")<?edge1Amount/?edge2Amount && ?edge1Amount/?edge2Amount < xsd:decimal("+ 2147483647 +"))\n" +
-                    "}";
+                    "    }\n" +
+                    "\n" +
+                    "}\n";
 
             GraphDbConnectionState.GraphDbClient client = graphDbConnectionState.client();
             String result = client.execute(queryString);
