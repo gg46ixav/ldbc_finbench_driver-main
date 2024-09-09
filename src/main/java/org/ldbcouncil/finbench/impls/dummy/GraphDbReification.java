@@ -2137,6 +2137,7 @@ public class GraphDbReification extends Db {
                         "                     account:"+rw2.getSrcId()+" ex:isBlocked \"true\"^^<http://www.w3.org/2001/XMLSchema#boolean> ." +
                         "            }";
                 String write18StringDst = "PREFIX ex: <http://example.org/> " +
+                        " PREFIX account: <http://example.org/Account/> " +
                         "            INSERT DATA{ " +
                         "                     account:"+rw2.getDstId()+" ex:isBlocked \"true\"^^<http://www.w3.org/2001/XMLSchema#boolean> ." +
                         "            }";
