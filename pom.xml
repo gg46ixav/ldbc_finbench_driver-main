@@ -40,21 +40,6 @@
         <!--            <version>${commmons.collections.version}</version>-->
         <!--        </dependency>-->
         <dependency>
-            <groupId>org.neo4j.driver</groupId>
-            <artifactId>neo4j-java-driver</artifactId>
-            <version>5.19.0</version>
-        </dependency>
-        <dependency>
-        <groupId>com.openlinksw</groupId>
-        <artifactId>virt_rdf4j_v4_0</artifactId>
-        <version>1.17</version>
-        </dependency>
-        <dependency>
-            <groupId>com.openlinksw</groupId>
-            <artifactId>virtjdbc4_3</artifactId>
-            <version>3.123</version>
-        </dependency>
-        <dependency>
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
             <version>${commons.io.version}</version>
@@ -162,37 +147,52 @@
         <dependency>
             <groupId>org.eclipse.rdf4j</groupId>
             <artifactId>rdf4j-query</artifactId>
-            <version>4.0.2</version>
+            <version>5.0.2</version>
         </dependency>
         <dependency>
             <groupId>org.eclipse.rdf4j</groupId>
             <artifactId>rdf4j-repository-manager</artifactId>
-            <version>4.0.2</version>
+            <version>5.0.2</version>
         </dependency>
         <dependency>
         <groupId>org.eclipse.rdf4j</groupId>
         <artifactId>rdf4j-queryalgebra-evaluation</artifactId>
-        <version>4.0.2</version>
+        <version>5.0.2</version>
     </dependency>
         <dependency>
             <groupId>org.eclipse.rdf4j</groupId>
             <artifactId>rdf4j-rio-api</artifactId>
-            <version>4.0.2</version>
+            <version>5.0.2</version>
         </dependency>
         <dependency>
             <groupId>org.eclipse.rdf4j</groupId>
             <artifactId>rdf4j-model</artifactId>
-            <version>4.0.2</version>
+            <version>5.0.2</version>
         </dependency>
         <dependency>
             <groupId>org.eclipse.rdf4j</groupId>
             <artifactId>rdf4j-common-transaction</artifactId>
-            <version>4.0.2</version>
+            <version>5.0.2</version>
         </dependency>
         <dependency>
             <groupId>org.eclipse.rdf4j</groupId>
             <artifactId>rdf4j-repository-api</artifactId>
-            <version>4.0.2</version>
+            <version>5.0.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.neo4j.driver</groupId>
+            <artifactId>neo4j-java-driver</artifactId>
+            <version>5.19.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.openlinksw</groupId>
+            <artifactId>virt_rdf4j_v4_0</artifactId>
+            <version>1.17</version>
+        </dependency>
+        <dependency>
+            <groupId>com.openlinksw</groupId>
+            <artifactId>virtjdbc4_3</artifactId>
+            <version>3.123</version>
         </dependency>
 
     </dependencies>
