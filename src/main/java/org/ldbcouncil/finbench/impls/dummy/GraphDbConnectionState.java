@@ -25,6 +25,7 @@ import org.ldbcouncil.finbench.driver.DbConnectionState;
 
 import org.neo4j.driver.*;
 import org.neo4j.driver.exceptions.NoSuchRecordException;
+import virtuoso.rdf4j.driver.VirtuosoRepository;
 
 public class GraphDbConnectionState extends DbConnectionState {
 
@@ -37,6 +38,10 @@ public class GraphDbConnectionState extends DbConnectionState {
                  repositoryManager.init();
                  repository = repositoryManager.getRepository(repositoryName);
         }
+        GraphDbClient(String connectionUrl, String user, String password) {
+
+            repository = new VirtuosoRepository("jdbc:virtuoso://"+connectionUrl, user, password);
+        }
         public RepositoryConnection startTransaction(String body){
             RepositoryConnection connection = repository.getConnection();
             connection.setAutoCommit(false);
@@ -45,15 +50,23 @@ public class GraphDbConnectionState extends DbConnectionState {
             return connection;
         }
 
-        public String execute(String body){
-            RepositoryConnection connection = repository.getConnection();
-            TupleQueryResult result = connection.prepareTupleQuery(body).evaluate();
-            return resultToString(result);
+        public String execute(String body) {
+            try (RepositoryConnection connection = repository.getConnection()) {
+                TupleQueryResult result = connection.prepareTupleQuery(body).evaluate();
+                return resultToString(result);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
         }
-        public void executeWrite(String body){
-            RepositoryConnection connection = repository.getConnection();
-            connection.prepareUpdate(body).execute();
+
+        public void executeWrite(String body) {
+            try (RepositoryConnection connection = repository.getConnection()) {
+                connection.prepareUpdate(body).execute();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
         }
+
         public void close(){
         }
 
@@ -81,6 +94,9 @@ public class GraphDbConnectionState extends DbConnectionState {
 
     public GraphDbConnectionState(Map<String, String> properties) {
         graphDbClient = new GraphDbClient(properties.get("host")+":"+properties.get("port"), properties.get("path"));
+    }
+    public GraphDbConnectionState(Map<String, String> properties, String virtuoso) {
+        graphDbClient = new GraphDbClient(properties.get("host")+":"+properties.get("port"), properties.get("user"), properties.get("pass"));
     }
 
     GraphDbClient client() {

@@ -840,29 +840,35 @@ public class GraphDbReification extends Db {
                     "PREFIX account: <http://example.org/Account/>\n" +
                     "\n" +
                     "SELECT \n" +
-                    "  (IF(SUM(?edge2Amount) > 0, \n" +
-                    "       ROUND(1000 * (SUM(DISTINCT ?edge1Amount) / SUM(DISTINCT ?edge2Amount)) / 1.0) / 1000, \n" +
-                    "       -1) AS ?ratioRepay)\n" +
-                    "  (IF(SUM(?edge4Amount) > 0, \n" +
-                    "       ROUND(1000 * (SUM(DISTINCT ?edge1Amount) / SUM(DISTINCT ?edge4Amount)) / 1.0) / 1000, \n" +
-                    "       -1) AS ?ratioDeposit)\n" +
-                    "  (IF(SUM(?edge4Amount) > 0, \n" +
-                    "       ROUND(1000 * (SUM(DISTINCT ?edge3Amount) / SUM(DISTINCT ?edge4Amount)) / 1.0) / 1000, \n" +
-                    "       -1) AS ?ratioTransfer)\n" +
-                    "WHERE { \n" +
-                    "    BIND(account:"+ cr9.getId() +" AS ?startAccount)\n" +
-                    "    BIND(xsd:decimal(\""+ cr9.getThreshold() +"\") AS ?threshold)\n" +
-                    "    BIND(xsd:dateTime(\""+ DATE_FORMAT.format(cr9.getStartTime()) +"\") AS ?startTime)\n" +
-                    "    BIND(xsd:dateTime(\""+ DATE_FORMAT.format(cr9.getEndTime()) +"\") AS ?endTime)\n" +
-                    "\n" +
-                    "    OPTIONAL {\n" +
+                    "  (IF(?sumEdge2Amount > 0, ROUND(1000 * (?sumEdge1Amount1 / (?sumEdge2Amount / 1.0))) / 1000, -1) AS ?ratioRepay)\n" +
+                    "  (IF(?sumEdge4Amount > 0, ROUND(1000 * (?sumEdge1Amount1 / (?sumEdge4Amount / 1.0))) / 1000, -1) AS ?ratioDeposit)\n" +
+                    "  (IF(?sumEdge4Amount > 0, ROUND(1000 * (?sumEdge3Amount1 / (?sumEdge4Amount / 1.0))) / 1000, -1) AS ?ratioTransfer)\n" +
+                    "WHERE {\n" +
+                    "  \n" +
+                    "  # Subquery for edge1Amount\n" +
+                    "  {\n" +
+                    "    SELECT (SUM(?edge1Amount) AS ?sumEdge1Amount1)\n" +
+                    "    WHERE {\n" +
+                    "      BIND(account:" + cr9.getId() + " AS ?startAccount)\n" +
+                    "      OPTIONAL {\n" +
                     "        ?blankNode1 rdf:subject ?loan .\n" +
                     "        ?blankNode1 rdf:predicate ex:deposit .\n" +
                     "        ?blankNode1 rdf:object ?startAccount .\n" +
                     "        ?blankNode1 ex:provenance ?edge1 .\n" +
                     "        ?edge1 ex:amount ?edge1Amount ;\n" +
                     "               ex:createTime ?edge1CreateTime .\n" +
-                    "\n" +
+                    "        FILTER(?edge1Amount > xsd:double(" + cr9.getThreshold() + "))\n" +
+                    "        FILTER(xsd:datetime(\"" + DATE_FORMAT.format(cr9.getStartTime()) + "\") < ?edge1CreateTime && ?edge1CreateTime < xsd:datetime(\"" + DATE_FORMAT.format(cr9.getEndTime()) + "\"))\n" +
+                    "      }\n" +
+                    "    }\n" +
+                    "  }\n" +
+                    "  \n" +
+                    "  # Subquery for edge2Amount\n" +
+                    "  {\n" +
+                    "    SELECT (SUM(?edge2Amount) AS ?sumEdge2Amount)\n" +
+                    "    WHERE {\n" +
+                    "      BIND(account:" + cr9.getId() + " AS ?startAccount)\n" +
+                    "      OPTIONAL {\n" +
                     "        # Reification for << ?startAccount ex:repay ?loan >>\n" +
                     "        ?blankNode2 rdf:subject ?startAccount .\n" +
                     "        ?blankNode2 rdf:predicate ex:repay .\n" +
@@ -870,36 +876,52 @@ public class GraphDbReification extends Db {
                     "        ?blankNode2 ex:provenance ?edge2 .\n" +
                     "        ?edge2 ex:amount ?edge2Amount ;\n" +
                     "               ex:createTime ?edge2CreateTime .\n" +
-                    "\n" +
-                    "        FILTER(?edge1Amount > ?threshold && ?edge2Amount > ?threshold)\n" +
-                    "        FILTER(?startTime < ?edge1CreateTime && ?edge1CreateTime < ?endTime)\n" +
-                    "        FILTER(?startTime < ?edge2CreateTime && ?edge2CreateTime < ?endTime)\n" +
+                    "        FILTER(?edge2Amount > xsd:double(" + cr9.getThreshold() + "))\n" +
+                    "        FILTER(xsd:datetime(\"" + DATE_FORMAT.format(cr9.getStartTime()) + "\") < ?edge2CreateTime && ?edge2CreateTime < xsd:datetime(\"" + DATE_FORMAT.format(cr9.getEndTime()) + "\"))\n" +
+                    "      }\n" +
                     "    }\n" +
-                    "\n" +
-                    "    OPTIONAL {\n" +
+                    "  }\n" +
+                    "  \n" +
+                    "  # Subquery for edge3Amount\n" +
+                    "  {\n" +
+                    "    SELECT (SUM(?edge3Amount) AS ?sumEdge3Amount1)\n" +
+                    "    WHERE {\n" +
+                    "      BIND(account:" + cr9.getId() + " AS ?startAccount)\n" +
+                    "      OPTIONAL {\n" +
                     "        ?blankNode3 rdf:subject ?upAccount .\n" +
                     "        ?blankNode3 rdf:predicate ex:transfer .\n" +
                     "        ?blankNode3 rdf:object ?startAccount .\n" +
                     "        ?blankNode3 ex:provenance ?edge3 .\n" +
                     "        ?edge3 ex:amount ?edge3Amount ;\n" +
                     "               ex:createTime ?edge3CreateTime .\n" +
-                    "\n" +
-                    "        FILTER(?edge3Amount > ?threshold)\n" +
-                    "        FILTER(?startTime < ?edge3CreateTime && ?edge3CreateTime < ?endTime)\n" +
+                    "        FILTER(?edge3Amount > xsd:double(" + cr9.getThreshold() + "))\n" +
+                    "        FILTER(xsd:datetime(\"" + DATE_FORMAT.format(cr9.getStartTime()) + "\") < ?edge3CreateTime && ?edge3CreateTime < xsd:datetime(\"" + DATE_FORMAT.format(cr9.getEndTime()) + "\"))\n" +
+                    "      }\n" +
                     "    }\n" +
-                    "\n" +
-                    "    OPTIONAL {\n" +
+                    "  }\n" +
+                    "  \n" +
+                    "  # Subquery for edge4Amount\n" +
+                    "  {\n" +
+                    "    SELECT (SUM(?edge4Amount) AS ?sumEdge4Amount)\n" +
+                    "    WHERE {\n" +
+                    "      BIND(account:" + cr9.getId() + " AS ?startAccount)\n" +
+                    "      OPTIONAL {\n" +
                     "        ?blankNode4 rdf:subject ?startAccount .\n" +
                     "        ?blankNode4 rdf:predicate ex:transfer .\n" +
                     "        ?blankNode4 rdf:object ?downAccount .\n" +
                     "        ?blankNode4 ex:provenance ?edge4 .\n" +
                     "        ?edge4 ex:amount ?edge4Amount ;\n" +
                     "               ex:createTime ?edge4CreateTime .\n" +
-                    "\n" +
-                    "        FILTER(?edge4Amount > ?threshold)\n" +
-                    "        FILTER(?startTime < ?edge4CreateTime && ?edge4CreateTime < ?endTime)\n" +
+                    "        FILTER(?edge4Amount > xsd:double(" + cr9.getThreshold() + "))\n" +
+                    "        FILTER(xsd:datetime(\"" + DATE_FORMAT.format(cr9.getStartTime()) + "\") < ?edge4CreateTime && ?edge4CreateTime < xsd:datetime(\"" + DATE_FORMAT.format(cr9.getEndTime()) + "\"))\n" +
+                    "      }\n" +
                     "    }\n" +
-                    "}\n";
+                    "  }\n" +
+                    "\n" +
+                    "  BIND(COALESCE(?sumEdge1Amount1, 0) AS ?sumEdge1Amount1)\n" +
+                    "  BIND(COALESCE(?sumEdge3Amount1, 0) AS ?sumEdge3Amount1)\n" +
+                    "}\n" +
+                    "\n";
 
             GraphDbConnectionState.GraphDbClient client = GraphDbConnectionState.client();
             String result = client.execute(queryString);
@@ -1994,11 +2016,17 @@ public class GraphDbReification extends Db {
                 String resultCr4 = client.resultToString(result);
                 ComplexRead4Result[] complexRead4Results = new ObjectMapper().readValue(resultCr4, ComplexRead4Result[].class);
                 if (complexRead4Results.length == 0 || complexRead4Results[0].getOtherId() == -1) {
-                    if(connection.isOpen()) connection.commit();
+                    if(connection.isOpen()){
+                        connection.commit();
+                        connection.close();
+                    }
                     resultReporter.report(0, LdbcNoResult.INSTANCE, rw1);
                     return;
                 }
-                if(connection.isOpen()) connection.rollback();
+                if(connection.isOpen()){
+                    connection.rollback();
+                    connection.close();
+                }
 
                 String write18StringSrc = "PREFIX ex: <http://example.org/> " +
                         " PREFIX account: <http://example.org/Account/> " +
@@ -2126,11 +2154,17 @@ public class GraphDbReification extends Db {
                 }
 
                 if (ratios.size()==2 && (ratios.get(0) <= rw2.getRatioThreshold() || ratios.get(1) <= rw2.getRatioThreshold())) {
-                    if(connection.isOpen()) connection.commit();
+                    if(connection.isOpen()){
+                        connection.commit();
+                        connection.close();
+                    }
                     resultReporter.report(0, LdbcNoResult.INSTANCE, rw2);
                     return;
                 }
-                if(connection.isOpen()) connection.rollback();
+                if(connection.isOpen()){
+                    connection.rollback();
+                    connection.close();
+                }
 
                 String write18StringSrc = "PREFIX ex: <http://example.org/> " +
                         " PREFIX account: <http://example.org/Account/> " +
@@ -2215,11 +2249,17 @@ public class GraphDbReification extends Db {
 
 
                 if (complexRead11Results.length>0 && complexRead11Results[0].getSumLoanAmount()<=rw3.getThreshold()) {
-                    if(connection.isOpen()) connection.commit();
+                    if(connection.isOpen()){
+                        connection.commit();
+                        connection.close();
+                    }
                     resultReporter.report(0, LdbcNoResult.INSTANCE, rw3);
                     return;
                 }
-                if(connection.isOpen()) connection.rollback();
+                if(connection.isOpen()){
+                    connection.rollback();
+                    connection.close();
+                }
 
 
 

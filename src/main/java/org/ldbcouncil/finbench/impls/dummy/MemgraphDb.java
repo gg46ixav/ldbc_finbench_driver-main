@@ -1372,11 +1372,17 @@ public class MemgraphDb extends Db {
                 String resultCr4 = client.resultToString(result);
                 ComplexRead4Result[] complexRead4Results = new ObjectMapper().readValue(resultCr4, ComplexRead4Result[].class);
                 if (complexRead4Results.length == 0 || complexRead4Results[0].getOtherId() == -1) {
-                    if(tx.isOpen()) tx.commit();
+                    if(tx.isOpen()){
+                        tx.commit();
+                        tx.close();
+                    }
                     resultReporter.report(0, LdbcNoResult.INSTANCE, rw1);
                     return;
                 }
-                if(tx.isOpen()) tx.rollback();
+                if(tx.isOpen()){
+                    tx.rollback();
+                    tx.close();
+                }
 
                 String write18String = "MATCH (a:Account {accountId: $accountId}) " +
                         "SET a.isBlocked = true";
@@ -1471,11 +1477,17 @@ public class MemgraphDb extends Db {
                 }
 
                 if (ratios.size()==2 && (ratios.get(0) <= rw2.getRatioThreshold() || ratios.get(1) <= rw2.getRatioThreshold())) {
-                    if(tx.isOpen()) tx.commit();
+                    if(tx.isOpen()){
+                        tx.commit();
+                        tx.close();
+                    }
                     resultReporter.report(0, LdbcNoResult.INSTANCE, rw2);
                     return;
                 }
-                if(tx.isOpen()) tx.rollback();
+                if(tx.isOpen()){
+                    tx.rollback();
+                    tx.close();
+                }
 
 
                 String write18String = "MATCH (a:Account {accountId: $accountId}) " +
@@ -1554,11 +1566,17 @@ public class MemgraphDb extends Db {
 
 
                 if (complexRead11Results.length>0 && complexRead11Results[0].getSumLoanAmount()<=rw3.getThreshold()) {
-                    if(tx.isOpen()) tx.commit();
+                    if(tx.isOpen()){
+                        tx.commit();
+                        tx.close();
+                    }
                     resultReporter.report(0, LdbcNoResult.INSTANCE, rw3);
                     return;
                 }
-                if(tx.isOpen()) tx.rollback();
+                if(tx.isOpen()){
+                    tx.rollback();
+                    tx.close();
+                }
 
 
                 String writeString = "MATCH (a:Person {personId: $personId}) " +
