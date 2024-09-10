@@ -1347,6 +1347,7 @@ public class GraphDbReification extends Db {
                     "                 ?dst ex:isBlocked true ." +
                     "                 ?occurrences2 ex:createTime ?edge2CreateTime ." +
                     "FILTER(xsd:dateTime(\""+DATE_FORMAT.format(sr6.getStartTime())+"\")<?edge2CreateTime && ?edge2CreateTime<xsd:dateTime(\"" + DATE_FORMAT.format(sr6.getEndTime()) +"\")) " +
+                    "FILTER(?src != ?dst) " +
                     "BIND(xsd:long(STRAFTER(STR(?dst), \"http://example.org/Account/\")) AS ?dstId) " +
                     "} "+
                     "ORDER BY ASC(?dstId)";

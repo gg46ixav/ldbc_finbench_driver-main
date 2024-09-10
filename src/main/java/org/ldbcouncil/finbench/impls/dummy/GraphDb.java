@@ -119,10 +119,11 @@ public class GraphDb extends Db {
 
             String queryString = "PREFIX ex: <http://example.org/>\n" +
                     "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\n" +
+                    "PREFIX account: <http://example.org/Account/> " +
                     "\n" +
                     "SELECT DISTINCT ?otherId ?accountDistance ?mediumId ?mediumType WHERE {\n" +
                     "  # Define the starting account\n" +
-                    "  BIND(ex:Account" + cr1.getId() + " AS ?startAccount)\n" +
+                    "  BIND(account:" + cr1.getId() + " AS ?startAccount)\n" +
                     "  \n" +
                     "  # Define the blocked medium\n" +
                     "  ?medium ex:isBlocked true .\n" +
@@ -167,8 +168,8 @@ public class GraphDb extends Db {
                     "  }\n" +
                     "  \n" +
                     "  # Extract IDs\n" +
-                    "  BIND(STRAFTER(STR(?otherAccount), \"http://example.org/Account\") AS ?otherId)\n" +
-                    "  BIND(STRAFTER(STR(?medium), \"http://example.org/Medium\") AS ?mediumId)\n" +
+                    "  BIND(xsd:long(STRAFTER(STR(?otherAccount), \"http://example.org/Account/\")) AS ?otherId)\n" +
+                    "  BIND(xsd:long(STRAFTER(STR(?medium), \"http://example.org/Medium/\")) AS ?mediumId)\n" +
                     "}\n" +
                     "ORDER BY ASC(?accountDistance) ASC(?otherId) ASC(?mediumId)";
 
@@ -201,10 +202,11 @@ public class GraphDb extends Db {
 
             String queryString = "PREFIX ex: <http://example.org/>\n" +
                     "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\n" +
+                    "PREFIX person: <http://example.org/Person/> " +
                     "\n" +
                     "SELECT ?otherId ((round(1000 * SUM(distinct ?loanAmount))/1000) AS ?sumLoanAmount) ((round(1000 * SUM(distinct ?loanBalance))/1000) AS ?sumLoanBalance) WHERE {\n" +
                     "  # Define the person and their owned accounts\n" +
-                    "    << ex:Person"+ cr2.getId() + " ex:own ?startAccount >> ex:occurrences ?occurrence .\n" +
+                    "    << person:"+ cr2.getId() + " ex:own ?startAccount >> ex:occurrences ?occurrence .\n" +
                     "  # Define the paths for transfers with a depth of 1 to 3\n" +
                     "  {\n" +
                     "    # Depth 1\n" +
@@ -250,7 +252,7 @@ public class GraphDb extends Db {
                     "  ?loan ex:balance ?loanBalance .\n" +
                     "  \n" +
                     "  # Extract other account ID\n" +
-                    "  BIND(STRAFTER(STR(?otherAccount), \"http://example.org/Account\") AS ?otherId)\n" +
+                    "  BIND(xsd:long(STRAFTER(STR(?otherAccount), \"http://example.org/Account/\")) AS ?otherId)\n" +
                     "}\n" +
                     "GROUP BY ?otherId\n" +
                     "ORDER BY DESC(?sumLoanAmount) ASC(?otherId)";
@@ -284,11 +286,12 @@ public class GraphDb extends Db {
             String queryString = "PREFIX ex: <http://example.org/>\n" +
                     "PREFIX path: <http://www.ontotext.com/path#>\n" +
                     "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\n" +
+                    "PREFIX account: <http://example.org/Account/> " +
                     "\n" +
                     "SELECT ?shortestPathLength WHERE {\n" +
                     "  # Define the starting and ending accounts\n" +
                     "  VALUES (?src ?dst) {\n" +
-                    "    (ex:Account"+cr3.getId1() +" ex:Account" +cr3.getId2()+ ")\n" +
+                    "    (account:"+cr3.getId1() +" account:" +cr3.getId2()+ ")\n" +
                     "  }\n" +
                     "\n" +
                     "    OPTIONAL{\n" +
@@ -339,6 +342,7 @@ public class GraphDb extends Db {
 
             String queryString = "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\n" +
                     "PREFIX ex: <http://example.org/>\n" +
+                    "PREFIX account: <http://example.org/Account/> " +
                     "\n" +
                     "SELECT \n" +
                     "?otherId " +
@@ -350,7 +354,7 @@ public class GraphDb extends Db {
                     "   (COUNT(DISTINCT ?occurrence3) AS ?numEdge3)" +
                     "WHERE {\n" +
                     "    VALUES (?src ?dst) {\n" +
-                    "        (ex:Account"+cr4.getId1()+" ex:Account"+cr4.getId2()+")\n" +
+                    "        (account:"+cr4.getId1()+" account:"+cr4.getId2()+")\n" +
                     "    }\n" +
                     "    \n" +
                     "    # Step 1: Check if src transferred money to dst within the time window\n" +
@@ -370,7 +374,7 @@ public class GraphDb extends Db {
                     "    ?occurrence2 ex:amount ?amount2 .\n" +
                     "    FILTER(?createTime2 > xsd:dateTime(\""+DATE_FORMAT.format(cr4.getStartTime())+"\") && ?createTime2 < xsd:dateTime(\""+DATE_FORMAT.format(cr4.getEndTime())+"\"))\n" +
                     "    \n" +
-                    "    BIND(STRAFTER(STR(?other), \"http://example.org/Account\") AS ?otherId)\n" +
+                    "    BIND(xsd:long(STRAFTER(STR(?other), \"http://example.org/Account/\")) AS ?otherId)\n" +
                     "}\n" +
                     "GROUP BY ?otherId\n";
 
@@ -401,10 +405,11 @@ public class GraphDb extends Db {
 
             String queryString = "PREFIX ex: <http://example.org/>\n" +
                     "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\n" +
+                    "PREFIX person: <http://example.org/Person/> " +
                     "\n" +
                     "SELECT DISTINCT ?startAccountId ?otherAccount1Id ?otherAccount2Id ?otherAccount3Id WHERE {\n" +
                     "  # Define the person and their owned accounts\n" +
-                    "    << ex:Person"+cr5.getId()+" ex:own ?startAccount >> ex:occurrences ?occurrence .\n" +
+                    "    << person:"+cr5.getId()+" ex:own ?startAccount >> ex:occurrences ?occurrence .\n" +
                     "  \n" +
                     "  # Define the paths for transfers with a depth of 1 to 3\n" +
                     "  {\n" +
@@ -412,8 +417,8 @@ public class GraphDb extends Db {
                     "    << ?startAccount ex:transfer ?otherAccount1 >> ex:occurrences ?occurrence1 .\n" +
                     "        ?occurrence1 ex:createTime ?transferTime1 .\n" +
                     "    FILTER(?transferTime1 > xsd:dateTime(\""+DATE_FORMAT.format(cr5.getStartTime())+"\") && ?transferTime1 < xsd:dateTime(\""+DATE_FORMAT.format(cr5.getEndTime())+"\"))\n" +
-                    "    BIND(STRAFTER(STR(?otherAccount1), \"http://example.org/Account\") AS ?otherAccount1Id)\n" +
-                    "    BIND(STRAFTER(STR(?startAccount), \"http://example.org/Account\") AS ?startAccountId)\n" +
+                    "    BIND(STRAFTER(STR(?otherAccount1), \"http://example.org/Account/\") AS ?otherAccount1Id)\n" +
+                    "    BIND(STRAFTER(STR(?startAccount), \"http://example.org/Account/\") AS ?startAccountId)\n" +
                     "    BIND(1 AS ?distance)\n" +
                     "  } UNION {\n" +
                     "    # Depth 2\n" +
@@ -424,9 +429,9 @@ public class GraphDb extends Db {
                     "    FILTER(?transferTime21 < ?transferTime22)\n" +
                     "    FILTER(?transferTime21 > xsd:dateTime(\""+DATE_FORMAT.format(cr5.getStartTime())+"\") && ?transferTime21 < xsd:dateTime(\""+DATE_FORMAT.format(cr5.getEndTime())+"\"))\n" +
                     "    FILTER(?transferTime22 > xsd:dateTime(\""+DATE_FORMAT.format(cr5.getStartTime())+"\") && ?transferTime22 < xsd:dateTime(\""+DATE_FORMAT.format(cr5.getEndTime())+"\"))\n" +
-                    "    BIND(STRAFTER(STR(?otherAccount21), \"http://example.org/Account\") AS ?otherAccount1Id)\n" +
-                    "    BIND(STRAFTER(STR(?otherAccount22), \"http://example.org/Account\") AS ?otherAccount2Id)\n" +
-                    "    BIND(STRAFTER(STR(?startAccount), \"http://example.org/Account\") AS ?startAccountId)\n" +
+                    "    BIND(STRAFTER(STR(?otherAccount21), \"http://example.org/Account/\") AS ?otherAccount1Id)\n" +
+                    "    BIND(STRAFTER(STR(?otherAccount22), \"http://example.org/Account/\") AS ?otherAccount2Id)\n" +
+                    "    BIND(STRAFTER(STR(?startAccount), \"http://example.org/Account/\") AS ?startAccountId)\n" +
                     "    BIND(2 AS ?distance)\n" +
                     "  } UNION {\n" +
                     "    # Depth 3\n" +
@@ -440,10 +445,10 @@ public class GraphDb extends Db {
                     "    FILTER(?transferTime31 > xsd:dateTime(\""+DATE_FORMAT.format(cr5.getStartTime())+"\") && ?transferTime31 < xsd:dateTime(\""+DATE_FORMAT.format(cr5.getEndTime())+"\"))\n" +
                     "    FILTER(?transferTime32 > xsd:dateTime(\""+DATE_FORMAT.format(cr5.getStartTime())+"\") && ?transferTime32 < xsd:dateTime(\""+DATE_FORMAT.format(cr5.getEndTime())+"\"))\n" +
                     "    FILTER(?transferTime33 > xsd:dateTime(\""+DATE_FORMAT.format(cr5.getStartTime())+"\") && ?transferTime33 < xsd:dateTime(\""+DATE_FORMAT.format(cr5.getEndTime())+"\"))\n" +
-                    "    BIND(STRAFTER(STR(?otherAccount31), \"http://example.org/Account\") AS ?otherAccount1Id)\n" +
-                    "    BIND(STRAFTER(STR(?otherAccount32), \"http://example.org/Account\") AS ?otherAccount2Id)\n" +
-                    "    BIND(STRAFTER(STR(?otherAccount33), \"http://example.org/Account\") AS ?otherAccount3Id)\n" +
-                    "    BIND(STRAFTER(STR(?startAccount), \"http://example.org/Account\") AS ?startAccountId)\n" +
+                    "    BIND(STRAFTER(STR(?otherAccount31), \"http://example.org/Account/\") AS ?otherAccount1Id)\n" +
+                    "    BIND(STRAFTER(STR(?otherAccount32), \"http://example.org/Account/\") AS ?otherAccount2Id)\n" +
+                    "    BIND(STRAFTER(STR(?otherAccount33), \"http://example.org/Account/\") AS ?otherAccount3Id)\n" +
+                    "    BIND(STRAFTER(STR(?startAccount), \"http://example.org/Account/\") AS ?startAccountId)\n" +
                     "    BIND(3 AS ?distance)\n" +
                     "  }\n" +
                     "  \n" +
@@ -483,6 +488,7 @@ public class GraphDb extends Db {
 
             String queryString = "PREFIX ex: <http://example.org/>\n" +
                     "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\n" +
+                    "PREFIX account: <http://example.org/Account/> " +
                     "\n" +
                     "SELECT ?midId ((round(1000 * SUM(distinct ?edge1Amount))/1000) AS ?sumEdge1Amount) ((round(1000 * SUM(distinct ?edge2Amount))/1000) AS ?sumEdge2Amount) WHERE {\n" +
                     "\n" +
@@ -494,13 +500,13 @@ public class GraphDb extends Db {
                     "  FILTER(?edge1Amount > "+cr6.getThreshold1()+")\n" +
                     "\n" +
                     "  # Filter for the second edge (withdraw)\n" +
-                    "  <<?mid ex:withdraw ex:Account"+cr6.getId()+">> ex:occurrences ?edge2Occurrence .\n" +
+                    "  <<?mid ex:withdraw account:"+cr6.getId()+">> ex:occurrences ?edge2Occurrence .\n" +
                     "  ?edge2Occurrence ex:createTime ?edge2CreateTime ;\n" +
                     "                   ex:amount ?edge2Amount .\n" +
                     "  FILTER(xsd:dateTime(\""+DATE_FORMAT.format(cr6.getStartTime())+"\") < ?edge2CreateTime && ?edge2CreateTime < xsd:dateTime(\""+DATE_FORMAT.format(cr6.getEndTime())+"\"))\n" +
                     "  FILTER(?edge2Amount > "+cr6.getThreshold2()+")\n" +
                     "  \n" +
-                    "  BIND(STRAFTER(STR(?mid), \"http://example.org/Account\") AS ?midId)\n" +
+                    "  BIND(xsd:long(STRAFTER(STR(?mid), \"http://example.org/Account/\")) AS ?midId)\n" +
                     "} GROUP BY ?midId HAVING (COUNT(?src1) > 3)\n" +
                     "ORDER BY DESC(?sumEdge2Amount) ASC(?midId) \n";
 
@@ -532,13 +538,14 @@ public class GraphDb extends Db {
 
             String queryString = "PREFIX ex: <http://example.org/>\n" +
                     "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\n" +
+                    "PREFIX account: <http://example.org/Account/> " +
                     "\n" +
                     "SELECT (COUNT(DISTINCT ?src) AS ?numSrc) \n" +
                     "       (COUNT(DISTINCT ?dst) AS ?numDst) \n" +
                     "       (IF(SUM(?edge2Amount) > 0, ROUND(1000 * (SUM(DISTINCT ?edge1Amount) / SUM(DISTINCT ?edge2Amount))) / 1000, 0) AS ?inOutRatio) \n" +
                     "WHERE {\n" +
                     "    \n" +
-                    "  BIND(ex:Account"+cr7.getId()+" AS ?mid)\n" +
+                    "  BIND(account:"+cr7.getId()+" AS ?mid)\n" +
                     "  # Match the source, intermediary, and destination accounts\n" +
                     "  \n" +
                     "  # Match the transfer edges and retrieve their amounts\n" +
@@ -585,11 +592,12 @@ public class GraphDb extends Db {
 
             String queryString = "PREFIX ex: <http://example.org/>\n" +
                     "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\n" +
+                    "PREFIX loan: <http://example.org/Loan/> " +
                     "\n" +
                     "SELECT ?dstId (ROUND(1000 * (sum(DISTINCT ?lastAmount) / max(?loanAmount))) / 1000 AS ?ratio) (max(?minDistanceFromLoanA) AS ?minDistanceFromLoan) WHERE {\n" +
                     "  # Define the person and their owned accounts\n" +
-                    " ex:Loan"+cr8.getId()+" ex:loanAmount ?loanAmount ." +
-                    "  << ex:Loan"+cr8.getId()+" ex:deposit ?startAccount >> ex:occurrences ?occurrence .\n" +
+                    " loan:"+cr8.getId()+" ex:loanAmount ?loanAmount ." +
+                    "  << loan:"+cr8.getId()+" ex:deposit ?startAccount >> ex:occurrences ?occurrence .\n" +
                     "       ?occurrence ex:createTime ?depositTime ." +
                     "  FILTER(?depositTime > xsd:dateTime(\""+DATE_FORMAT.format(cr8.getStartTime())+"\") && ?depositTime < xsd:dateTime(\""+DATE_FORMAT.format(cr8.getEndTime())+"\"))\n" +
                     "  \n" +
@@ -648,7 +656,7 @@ public class GraphDb extends Db {
                     "    BIND(4 AS ?minDistanceFromLoanA)\n" +
                     "    BIND(?edgeAmount33 AS ?lastAmount) " + //# Total amount for depth 3
                     "  }\n" +
-                    "  BIND(xsd:long(STRAFTER(STR(?otherAccount), \"http://example.org/Account\")) AS ?dstId)\n" +
+                    "  BIND(xsd:long(STRAFTER(STR(?otherAccount), \"http://example.org/Account/\")) AS ?dstId)\n" +
                     "  \n" +
                     "} " +
                     "\n" +
@@ -704,15 +712,12 @@ public class GraphDb extends Db {
                     "    BIND(xsd:dateTime(\""+ DATE_FORMAT.format(cr9.getStartTime()) +"\") AS ?startTime)\n" +
                     "    BIND(xsd:dateTime(\""+ DATE_FORMAT.format(cr9.getEndTime()) +"\") AS ?endTime)\n" +
                     "\n" +
-                    "    # OPTIONAL: Loan -> Account -> Loan2 (deposit and repay)\n" +
                     "    OPTIONAL {\n" +
-                    "        # RDF* Statement: << ?loan ex:deposit ?startAccount >> ex:provenance ?edge1 .\n" +
-                    "        << ?loan ex:deposit ?startAccount >> ex:provenance ?edge1 .\n" +
+                    "        << ?loan ex:deposit ?startAccount >> ex:occurrences ?edge1 .\n" +
                     "        ?edge1 ex:amount ?edge1Amount ;\n" +
                     "               ex:createTime ?edge1CreateTime .\n" +
                     "\n" +
-                    "        # RDF* Statement: << ?startAccount ex:repay ?loan >> ex:provenance ?edge2 .\n" +
-                    "        << ?startAccount ex:repay ?loan >> ex:provenance ?edge2 .\n" +
+                    "        << ?startAccount ex:repay ?loan >> ex:occurrences ?edge2 .\n" +
                     "        ?edge2 ex:amount ?edge2Amount ;\n" +
                     "               ex:createTime ?edge2CreateTime .\n" +
                     "\n" +
@@ -721,10 +726,8 @@ public class GraphDb extends Db {
                     "        FILTER(?startTime < ?edge2CreateTime && ?edge2CreateTime < ?endTime)\n" +
                     "    }\n" +
                     "\n" +
-                    "    # OPTIONAL: Transfer from an up account to the start account\n" +
                     "    OPTIONAL {\n" +
-                    "        # RDF* Statement: << ?upAccount ex:transfer ?startAccount >> ex:provenance ?edge3 .\n" +
-                    "        << ?upAccount ex:transfer ?startAccount >> ex:provenance ?edge3 .\n" +
+                    "        << ?upAccount ex:transfer ?startAccount >> ex:occurrences ?edge3 .\n" +
                     "        ?edge3 ex:amount ?edge3Amount ;\n" +
                     "               ex:createTime ?edge3CreateTime .\n" +
                     "\n" +
@@ -734,8 +737,8 @@ public class GraphDb extends Db {
                     "\n" +
                     "    # OPTIONAL: Transfer from the start account to a down account\n" +
                     "    OPTIONAL {\n" +
-                    "        # RDF* Statement: << ?startAccount ex:transfer ?downAccount >> ex:provenance ?edge4 .\n" +
-                    "        << ?startAccount ex:transfer ?downAccount >> ex:provenance ?edge4 .\n" +
+                    "        # RDF* Statement: << ?startAccount ex:transfer ?downAccount >> ex:occurrences ?edge4 .\n" +
+                    "        << ?startAccount ex:transfer ?downAccount >> ex:occurrences ?edge4 .\n" +
                     "        ?edge4 ex:amount ?edge4Amount ;\n" +
                     "               ex:createTime ?edge4CreateTime .\n" +
                     "\n" +
@@ -773,6 +776,7 @@ public class GraphDb extends Db {
 
             String queryString = "PREFIX ex: <http://example.org/>\n" +
                     "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\n" +
+                    "PREFIX person: <http://example.org/Person/> " +
                     "\n" +
                     "SELECT (IF(BOUND(?unionSize) && ?unionSize > 0, ROUND(1000 * (?intersectionSize / ?unionSize))/1000, 0) AS ?jaccardSimilarity) WHERE {  \n" +
                     "    \n" +
@@ -780,7 +784,7 @@ public class GraphDb extends Db {
                     "    {\n" +
                     "        SELECT (COUNT(DISTINCT ?company) AS ?intersectionSize) WHERE {\n" +
                     "            VALUES (?person1 ?person2) {\n" +
-                    "        (ex:Person"+ cr10.getPid1() +" ex:Person"+ cr10.getPid2() +")\n" +
+                    "        (person:"+ cr10.getPid1() +" person:"+ cr10.getPid2() +")\n" +
                     "    }\n" +
                     "            << ?person1 ex:invest ?company >> ex:occurrences ?invest1 .\n" +
                     "            ?invest1 ex:createTime ?invest1Time .\n" +
@@ -796,7 +800,7 @@ public class GraphDb extends Db {
                     "    {\n" +
                     "        SELECT (COUNT(DISTINCT ?company1) AS ?unionSize) WHERE {\n" +
                     "            VALUES (?person1 ?person2) {\n" +
-                    "        (ex:Person"+ cr10.getPid1() +" ex:Person"+ cr10.getPid2() +")\n" +
+                    "        (person:"+ cr10.getPid1() +" person:"+ cr10.getPid2() +")\n" +
                     "    }\n" +
                     "            {\n" +
                     "                << ?person1 ex:invest ?company1 >> ex:occurrences ?invest1 .\n" +
@@ -872,8 +876,9 @@ public class GraphDb extends Db {
 
             String queryString = "PREFIX ex: <http://example.org/>\n" +
                     "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\n" +
+                    "PREFIX person: <http://example.org/Person/> " +
                     "SELECT ?compAccountId (round(1000 * sum(?transferAmount))/1000 AS ?sumEdge2Amount) WHERE {" +
-                    "BIND(ex:Person"+ cr12.getId()+" AS ?person)" +
+                    "BIND(person:"+ cr12.getId()+" AS ?person)" +
                     "<< ?person ex:own ?account >> ex:occurrences ?personOwnEdge ." +
                     "<< ?account ex:transfer ?companyAccount >> ex:occurrences ?transferEdge ." +
                     "?company a ex:Company ." +
@@ -881,7 +886,7 @@ public class GraphDb extends Db {
                     "?transferEdge  ex:createTime ?createTime ;" +
                     "               ex:amount ?transferAmount ." +
                     "FILTER(xsd:dateTime(\""+DATE_FORMAT.format(cr12.getStartTime())+"\")<?createTime && ?createTime<xsd:dateTime(\"" + DATE_FORMAT.format(cr12.getEndTime()) +"\")) " +
-                    "BIND(STRAFTER(STR(?companyAccount), \"http://example.org/Account\") AS ?compAccountId) " +
+                    "BIND(xsd:long(STRAFTER(STR(?companyAccount), \"http://example.org/Account/\")) AS ?compAccountId) " +
                     "}" +
                     "GROUP BY ?compAccountId " +
                     "ORDER BY DESC (?sumEdge2Amount) ASC(?compAccountId)";
@@ -996,7 +1001,7 @@ public class GraphDb extends Db {
                     "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#> " +
 
                     // Erste Teilabfrage: Zählt alle Transfers zu ?dst
-                    "SELECT (IF(COUNT(?src1) > 0, round(1000 * (COUNT(DISTINCT ?occurrences2) / COUNT(DISTINCT ?occurrences2))) / 1000, -1) AS ?blockRatio) " +
+                    "SELECT (IF(COUNT(?src1) > 0, round(1000 * (COUNT(DISTINCT ?occurrences2) / COUNT(DISTINCT ?occurrences1))) / 1000, -1) AS ?blockRatio) " +
                     "WHERE { " +
                     "  BIND(account:" + sr3.getId() + " AS ?dst) " +
 
@@ -1137,6 +1142,7 @@ public class GraphDb extends Db {
                     "                 ?dst ex:isBlocked true ." +
                     "                 ?occurrences2 ex:createTime ?edge2CreateTime ." +
                     "FILTER(xsd:dateTime(\""+DATE_FORMAT.format(sr6.getStartTime())+"\")<?edge2CreateTime && ?edge2CreateTime<xsd:dateTime(\"" + DATE_FORMAT.format(sr6.getEndTime()) +"\")) " +
+                    "FILTER(?src != ?dst) " +
                     "BIND(xsd:long(STRAFTER(STR(?dst), \"http://example.org/Account/\")) AS ?dstId) " +
                     "} "+
                     "ORDER BY ASC(?dstId)";
@@ -1713,7 +1719,7 @@ public class GraphDb extends Db {
                         "   (COUNT(DISTINCT ?occurrence3) AS ?numEdge3)" +
                         "WHERE {\n" +
                         "    VALUES (?src ?dst) {\n" +
-                        "        (account:"+rw1.getSrcId()+" ex:Account"+rw1.getDstId()+")\n" +
+                        "        (account:"+rw1.getSrcId()+" account:"+rw1.getDstId()+")\n" +
                         "    }\n" +
                         "    \n" +
                         "    # Step 1: Check if src transferred money to dst within the time window\n" +
@@ -1759,8 +1765,8 @@ public class GraphDb extends Db {
                         "                     account:"+rw1.getDstId()+" ex:isBlocked \"true\"^^<http://www.w3.org/2001/XMLSchema#boolean> ." +
                         "            }";
 
-                client.execute(write18StringSrc);
-                client.execute(write18StringDst);
+                client.executeWrite(write18StringSrc);
+                client.executeWrite(write18StringDst);
 
 
             } catch (JsonProcessingException e) {
@@ -1881,8 +1887,8 @@ public class GraphDb extends Db {
                         "                     account:"+rw2.getDstId()+" ex:isBlocked \"true\"^^<http://www.w3.org/2001/XMLSchema#boolean> ." +
                         "            }";
 
-                client.execute(write18StringSrc);
-                client.execute(write18StringDst);
+                client.executeWrite(write18StringSrc);
+                client.executeWrite(write18StringDst);
 
 
             } catch (JsonProcessingException e) {
