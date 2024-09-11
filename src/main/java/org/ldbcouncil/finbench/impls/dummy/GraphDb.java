@@ -863,11 +863,28 @@ public class GraphDb extends Db {
             queryParams.put("start_time", DATE_FORMAT.format(cr11.getStartTime()));
             queryParams.put("end_time", DATE_FORMAT.format(cr11.getEndTime()));
 
-            String queryString = "MATCH path=(p1:Person {personId: $id})-[:guarantee*]->(pX:Person) " +
-                    "WHERE all(e IN relationships(path) WHERE localDateTime($start_time) < e.createTime < localDateTime($end_time)) " +
-                    "UNWIND nodes(path)[1..] AS person " +
-                    "MATCH (person)-[:apply]->(loan:Loan) " +
-                    "RETURN sum(loan.loanAmount) AS sumLoanAmount, count(loan) AS numLoans";
+            String queryString = "PREFIX ex: <http://example.org/>\n" +
+                    "PREFIX path: <http://www.ontotext.com/path#>\n" +
+                    "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\n" +
+                    "PREFIX person: <http://example.org/Person/> " +
+                    "\n" +
+                    "SELECT (SUM(?loanAmount) AS ?sumLoanAmount) (COUNT(?loan) AS ?numLoans) WHERE {\n" +
+                    "  # Define the starting and ending accounts\n" +
+                    "  VALUES (?src) {\n" +
+                    "    (person:"+cr11.getId()+ ")\n" +
+                    "  }\n" +
+                    "<<?src ex:guarantee ?dst>> ex:occurrences ?occurrence ." +
+                    "    OPTIONAL{\n" +
+                    "  SERVICE path:search {\n" +
+                    "        <urn:path> path:findPath path:allPaths ;\n" +
+                    "                   path:sourceNode ?src ;\n" +
+                    "                   path:destinationNode ?dst ;\n" +
+                    "                   path:minPathLength 1 ." +
+                    "    }\n" +
+                    "  }\n" +
+                    " <<?dst ex:apply ?loan>> ex:occurrences ?oc ." +
+                    " ?loan ex:loanAmount ?loanAmount ." +
+                    "}\n";
 
             GraphDbConnectionState.GraphDbClient client = graphDbConnectionState.client();
             String result = client.execute(queryString);
@@ -1980,7 +1997,28 @@ public class GraphDb extends Db {
                     return;
                 }
                 //HIER CR11
-                String complexRead11String = "";
+                String complexRead11String = "PREFIX ex: <http://example.org/>\n" +
+                        "PREFIX path: <http://www.ontotext.com/path#>\n" +
+                        "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\n" +
+                        "PREFIX person: <http://example.org/Person/> " +
+                        "\n" +
+                        "SELECT (SUM(?loanAmount) AS ?sumLoanAmount) (COUNT(?loan) AS ?numLoans) WHERE {\n" +
+                        "  # Define the starting and ending accounts\n" +
+                        "  VALUES (?src) {\n" +
+                        "    (person:"+rw3.getSrcId()+ ")\n" +
+                        "  }\n" +
+                        "<<?src ex:guarantee ?dst>> ex:occurrences ?occurrence ." +
+                        "    OPTIONAL{\n" +
+                        "  SERVICE path:search {\n" +
+                        "        <urn:path> path:findPath path:allPaths ;\n" +
+                        "                   path:sourceNode ?src ;\n" +
+                        "                   path:destinationNode ?dst ;\n" +
+                        "                   path:minPathLength 1 ." +
+                        "    }\n" +
+                        "  }\n" +
+                        " <<?dst ex:apply ?loan>> ex:occurrences ?oc ." +
+                        " ?loan ex:loanAmount ?loanAmount ." +
+                        "}\n";
 
                 String resultCr11 = client.resultToString(connection.prepareTupleQuery(complexRead11String).evaluate());
                 ComplexRead11Result[] complexRead11Results = new ObjectMapper().readValue(resultCr11, ComplexRead11Result[].class);

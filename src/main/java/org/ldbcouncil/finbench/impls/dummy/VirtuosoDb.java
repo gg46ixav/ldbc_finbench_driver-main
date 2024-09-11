@@ -1017,11 +1017,27 @@ public class VirtuosoDb extends Db {
             queryParams.put("start_time", DATE_FORMAT.format(cr11.getStartTime()));
             queryParams.put("end_time", DATE_FORMAT.format(cr11.getEndTime()));
 
-            String queryString = "MATCH path=(p1:Person {personId: $id})-[:guarantee*]->(pX:Person) " +
-                    "WHERE all(e IN relationships(path) WHERE localDateTime($start_time) < e.createTime < localDateTime($end_time)) " +
-                    "UNWIND nodes(path)[1..] AS person " +
-                    "MATCH (person)-[:apply]->(loan:Loan) " +
-                    "RETURN sum(loan.loanAmount) AS sumLoanAmount, count(loan) AS numLoans";
+            String queryString = "PREFIX ex: <http://example.org/>\n" +
+                    "PREFIX person: <http://example.org/Person/>\n" +
+                    "\n" +
+                    "SELECT (SUM(?loanAmount) AS ?sumLoanAmount) (COUNT(?loan) AS ?numLoans)\n" +
+                    "WHERE\n" +
+                    "  {\n" +
+                    "    ?s ex:guarantee ?o\n" +
+                    "    OPTION ( TRANSITIVE ,\n" +
+                    "             T_DISTINCT ,\n" +
+                    "             T_NO_CYCLES,\n" +
+                    "             T_IN ( ?s ) ,\n" +
+                    "             T_OUT ( ?o ) ,\n" +
+                    "             T_MIN ( 1 ) \n" +
+                    "           ) .\n" +
+                    "    FILTER ( ?s = person:"+ cr11.getId() +")\n" +
+                    "\n" +
+                    "?bNode rdf:subject ?o.\n" +
+                    "?bNode rdf:predicate ex:apply .\n" +
+                    "?bNode rdf:object ?loan .\n" +
+                    "?loan ex:loanAmount ?loanAmount .\n" +
+                    "  }";
 
             GraphDbConnectionState.GraphDbClient client = graphDbConnectionState.client();
             String result = client.execute(queryString);
@@ -2230,7 +2246,27 @@ public class VirtuosoDb extends Db {
                     return;
                 }
                 //HIER CR11
-                String complexRead11String = "";
+                String complexRead11String = "PREFIX ex: <http://example.org/>\n" +
+                        "PREFIX person: <http://example.org/Person/>\n" +
+                        "\n" +
+                        "SELECT (SUM(?loanAmount) AS ?sumLoanAmount) (COUNT(?loan) AS ?numLoans)\n" +
+                        "WHERE\n" +
+                        "  {\n" +
+                        "    ?s ex:guarantee ?o\n" +
+                        "    OPTION ( TRANSITIVE ,\n" +
+                        "             T_DISTINCT ,\n" +
+                        "             T_NO_CYCLES,\n" +
+                        "             T_IN ( ?s ) ,\n" +
+                        "             T_OUT ( ?o ) ,\n" +
+                        "             T_MIN ( 1 ) \n" +
+                        "           ) .\n" +
+                        "    FILTER ( ?s = person:"+ rw3.getSrcId() +")\n" +
+                        "\n" +
+                        "?bNode rdf:subject ?o.\n" +
+                        "?bNode rdf:predicate ex:apply .\n" +
+                        "?bNode rdf:object ?loan .\n" +
+                        "?loan ex:loanAmount ?loanAmount .\n" +
+                        "  }";
 
                 String resultCr11 = client.resultToString(connection.prepareTupleQuery(complexRead11String).evaluate());
                 ComplexRead11Result[] complexRead11Results = new ObjectMapper().readValue(resultCr11, ComplexRead11Result[].class);
