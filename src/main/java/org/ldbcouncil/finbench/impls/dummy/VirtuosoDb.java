@@ -839,7 +839,7 @@ public class VirtuosoDb extends Db {
                     "        ?edge1 ex:amount ?edge1Amount ;\n" +
                     "               ex:createTime ?edge1CreateTime .\n" +
                     "        FILTER(?edge1Amount > xsd:double(" + cr9.getThreshold() + "))\n" +
-                    "        FILTER(xsd:datetime(\"" + DATE_FORMAT.format(cr9.getStartTime()) + "\") < ?edge1CreateTime && ?edge1CreateTime < xsd:datetime(\"" + DATE_FORMAT.format(cr9.getEndTime()) + "\"))\n" +
+                    "        FILTER(xsd:dateTime(\"" + DATE_FORMAT.format(cr9.getStartTime()) + "\") < ?edge1CreateTime && ?edge1CreateTime < xsd:dateTime(\"" + DATE_FORMAT.format(cr9.getEndTime()) + "\"))\n" +
                     "      }\n" +
                     "    }\n" +
                     "  }\n" +
@@ -858,7 +858,7 @@ public class VirtuosoDb extends Db {
                     "        ?edge2 ex:amount ?edge2Amount ;\n" +
                     "               ex:createTime ?edge2CreateTime .\n" +
                     "        FILTER(?edge2Amount > xsd:double(" + cr9.getThreshold() + "))\n" +
-                    "        FILTER(xsd:datetime(\"" + DATE_FORMAT.format(cr9.getStartTime()) + "\") < ?edge2CreateTime && ?edge2CreateTime < xsd:datetime(\"" + DATE_FORMAT.format(cr9.getEndTime()) + "\"))\n" +
+                    "        FILTER(xsd:dateTime(\"" + DATE_FORMAT.format(cr9.getStartTime()) + "\") < ?edge2CreateTime && ?edge2CreateTime < xsd:dateTime(\"" + DATE_FORMAT.format(cr9.getEndTime()) + "\"))\n" +
                     "      }\n" +
                     "    }\n" +
                     "  }\n" +
@@ -876,7 +876,7 @@ public class VirtuosoDb extends Db {
                     "        ?edge3 ex:amount ?edge3Amount ;\n" +
                     "               ex:createTime ?edge3CreateTime .\n" +
                     "        FILTER(?edge3Amount > xsd:double(" + cr9.getThreshold() + "))\n" +
-                    "        FILTER(xsd:datetime(\"" + DATE_FORMAT.format(cr9.getStartTime()) + "\") < ?edge3CreateTime && ?edge3CreateTime < xsd:datetime(\"" + DATE_FORMAT.format(cr9.getEndTime()) + "\"))\n" +
+                    "        FILTER(xsd:dateTime(\"" + DATE_FORMAT.format(cr9.getStartTime()) + "\") < ?edge3CreateTime && ?edge3CreateTime < xsd:dateTime(\"" + DATE_FORMAT.format(cr9.getEndTime()) + "\"))\n" +
                     "      }\n" +
                     "    }\n" +
                     "  }\n" +
@@ -894,7 +894,7 @@ public class VirtuosoDb extends Db {
                     "        ?edge4 ex:amount ?edge4Amount ;\n" +
                     "               ex:createTime ?edge4CreateTime .\n" +
                     "        FILTER(?edge4Amount > xsd:double(" + cr9.getThreshold() + "))\n" +
-                    "        FILTER(xsd:datetime(\"" + DATE_FORMAT.format(cr9.getStartTime()) + "\") < ?edge4CreateTime && ?edge4CreateTime < xsd:datetime(\"" + DATE_FORMAT.format(cr9.getEndTime()) + "\"))\n" +
+                    "        FILTER(xsd:dateTime(\"" + DATE_FORMAT.format(cr9.getStartTime()) + "\") < ?edge4CreateTime && ?edge4CreateTime < xsd:dateTime(\"" + DATE_FORMAT.format(cr9.getEndTime()) + "\"))\n" +
                     "      }\n" +
                     "    }\n" +
                     "  }\n" +
