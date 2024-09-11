@@ -39,7 +39,7 @@ public class GraphDbReification extends Db {
         registerOperationHandler(ComplexRead8.class, ComplexRead8Handler.class);
         registerOperationHandler(ComplexRead9.class, ComplexRead9Handler.class);
         registerOperationHandler(ComplexRead10.class, ComplexRead10Handler.class);
-        //registerOperationHandler(ComplexRead11.class, ComplexRead11Handler.class);
+        registerOperationHandler(ComplexRead11.class, ComplexRead11Handler.class);
         registerOperationHandler(ComplexRead12.class, ComplexRead12Handler.class);
 
 
