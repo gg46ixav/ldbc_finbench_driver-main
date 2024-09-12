@@ -86,7 +86,7 @@ public class GraphDbReification extends Db {
         // read-writes
         registerOperationHandler(ReadWrite1.class, ReadWrite1Handler.class);
         registerOperationHandler(ReadWrite2.class, ReadWrite2Handler.class);
-        //registerOperationHandler(ReadWrite3.class, ReadWrite3Handler.class);
+        registerOperationHandler(ReadWrite3.class, ReadWrite3Handler.class);
 
     }
 
