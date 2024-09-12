@@ -2292,6 +2292,7 @@ public class VirtuosoDb extends Db {
                         "                     person:" + rw3.getSrcId() + " ex:isBlocked \"true\"^^<http://www.w3.org/2001/XMLSchema#boolean> ." +
                         "            }";
                 String write19StringDst = "PREFIX ex: <http://example.org/> " +
+                        "PREFIX person: <http://example.org/Person/> " +
                         "            INSERT IN GRAPH <finbench_graph>{ " +
                         "                     person:" + rw3.getDstId() + " ex:isBlocked \"true\"^^<http://www.w3.org/2001/XMLSchema#boolean> ." +
                         "            }";
